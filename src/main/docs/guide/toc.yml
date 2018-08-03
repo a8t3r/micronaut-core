@@ -29,6 +29,7 @@ ioc:
   replaces: Bean Replacement
   beanConfigurations: Bean Configurations
   lifecycle: Life-Cycle Methods
+  contextEvents: Context Events
   events: Bean Events
   annotationMetadata: Bean Annotation Metadata
   springBeans: Micronaut Beans And Spring
@@ -47,6 +48,7 @@ aop:
   title: Aspect Oriented Programming
   aroundAdvice: Around Advice
   introductionAdvice: Introduction Advice
+  adapterAdvice: Method Adapter Advice
   validation:
     title: Validation Advice
   caching: 
@@ -120,6 +122,7 @@ cloud:
     serviceDiscoveryEureka: Eureka Support
     serviceDiscoveryKubernetes: Kubernetes Support
 #    serviceDiscoveryRoute53: AWS Route 53 Support
+    serviceDiscoveryManual: Manual Service Discovery Configuration
   clientSideLoadBalancing:
     title: Client Side Load Balancing
     netflixRibbon: Netflix Ribbon Support
@@ -165,6 +168,12 @@ messaging:
       title: Running Kafka Applications
       kafkaHealth: Kafka Health Checks
     kafkaStream: Building Kafka Stream Applications
+commandLineApps:
+  title: Standalone Command Line Applications
+  picocli:
+    title: Picocli Support
+    picocliGenerateProject: Generating a Project with the Micronaut CLI
+    picocliQuickStart: Picocli Quick Start
 configurations:
   title: Configurations
   dataAccess:
@@ -256,5 +265,6 @@ cli:
 appendix:
   title: Appendices
   faq: Frequently Asked Questions (FAQ)
+  usingsnapshots: Using Snapshots
   problems: Common Problems
   breaks: Breaking Changes
