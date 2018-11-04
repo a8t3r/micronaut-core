@@ -1,8 +1,21 @@
-The server starts by default on a random port. However, you can set the server to run on a specific port:
+By default the server runs on port 8080. However, you can set the server to run on a specific port:
 
 [source, yaml]
 ----
 micronaut:
   server:
-    port: 8080
+    port: 8086
 ----
+
+TIP: This is also possible to be configured from an environment variable: `MICRONAUT_SERVER_PORT=8086`
+
+To run on a random port:
+
+[source, yaml]
+----
+micronaut:
+  server:
+    port: -1
+----
+
+

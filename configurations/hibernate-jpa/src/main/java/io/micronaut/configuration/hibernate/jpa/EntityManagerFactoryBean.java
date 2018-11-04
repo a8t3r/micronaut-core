@@ -16,6 +16,8 @@
 
 package io.micronaut.configuration.hibernate.jpa;
 
+import io.micronaut.configuration.hibernate.jpa.condition.RequiresHibernateEntities;
+import io.micronaut.configuration.hibernate.jpa.scope.CurrentSession;
 import io.micronaut.context.BeanLocator;
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Context;
@@ -27,6 +29,7 @@ import io.micronaut.context.env.Environment;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import org.hibernate.Interceptor;
+import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.Metadata;
 import org.hibernate.boot.MetadataSources;
@@ -38,7 +41,6 @@ import org.springframework.orm.hibernate5.SpringSessionContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import javax.persistence.Entity;
 import javax.sql.DataSource;
 import javax.validation.ValidatorFactory;
@@ -91,7 +93,6 @@ public class EntityManagerFactoryBean {
      * @param dataSource     The data source
      * @return The {@link StandardServiceRegistry}
      */
-    @Singleton
     @EachBean(DataSource.class)
     protected StandardServiceRegistry hibernateStandardServiceRegistry(
         @Parameter String dataSourceName,
@@ -112,21 +113,17 @@ public class EntityManagerFactoryBean {
     /**
      * Builds the {@link MetadataSources} for the given {@link StandardServiceRegistry}.
      *
-     * @param dataSourceName          The data source name
+     * @param jpaConfiguration        The JPA configuration
      * @param standardServiceRegistry The standard service registry
      * @return The {@link MetadataSources}
      */
-    @Singleton
     @EachBean(StandardServiceRegistry.class)
-    @Requires(entities = Entity.class)
+    @RequiresHibernateEntities
     protected MetadataSources hibernateMetadataSources(
-        @Parameter String dataSourceName,
+        @Parameter JpaConfiguration jpaConfiguration,
         StandardServiceRegistry standardServiceRegistry) {
 
         MetadataSources metadataSources = createMetadataSources(standardServiceRegistry);
-        JpaConfiguration jpaConfiguration = beanLocator.findBean(JpaConfiguration.class, Qualifiers.byName(dataSourceName))
-            .orElse(this.jpaConfiguration);
-
         String[] packagesToScan = jpaConfiguration.getPackagesToScan();
         if (ArrayUtils.isNotEmpty(packagesToScan)) {
             environment.scan(Entity.class, packagesToScan).forEach(metadataSources::addAnnotatedClass);
@@ -143,7 +140,6 @@ public class EntityManagerFactoryBean {
      * @param validatorFactory The {@link ValidatorFactory}
      * @return The {@link SessionFactoryBuilder}
      */
-    @Singleton
     @EachBean(MetadataSources.class)
     @Requires(beans = MetadataSources.class)
     protected SessionFactoryBuilder hibernateSessionFactoryBuilder(
@@ -174,6 +170,20 @@ public class EntityManagerFactoryBean {
     protected SessionFactory hibernateSessionFactory(SessionFactoryBuilder sessionFactoryBuilder) {
         return sessionFactoryBuilder.build();
     }
+
+    /**
+     * Obtains the current session for teh given session factory.
+     *
+     * @param sessionFactory The session factory
+     * @param dataSource The name of the data source.
+     * @return The current session
+     */
+    @EachBean(SessionFactory.class)
+    @CurrentSession
+    protected Session currentSession(@Parameter String dataSource, SessionFactory sessionFactory) {
+        return sessionFactory.getCurrentSession();
+    }
+
 
     /**
      * Creates the {@link MetadataSources} for the given registry.

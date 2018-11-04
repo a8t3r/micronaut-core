@@ -18,9 +18,16 @@ package io.micronaut.annotation.processing.visitor;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationMetadataDelegate;
+import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.processing.JavaModelUtils;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.*;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * An abstract class for other elements to extend from.
@@ -28,7 +35,7 @@ import javax.lang.model.element.Modifier;
  * @author James Kleeh
  * @since 1.0
  */
-public abstract class AbstractJavaElement implements io.micronaut.inject.visitor.Element, AnnotationMetadataDelegate {
+public abstract class AbstractJavaElement implements io.micronaut.inject.ast.Element, AnnotationMetadataDelegate {
 
     private final Element element;
     private final AnnotationMetadata annotationMetadata;
@@ -94,5 +101,70 @@ public abstract class AbstractJavaElement implements io.micronaut.inject.visitor
     @Override
     public String toString() {
         return element.toString();
+    }
+
+    /**
+     * Obtain the ClassElement for the given mirror.
+     *
+     * @param returnType The return type
+     * @param visitorContext The visitor context
+     * @return The class element
+     */
+    protected ClassElement mirrorToClassElement(TypeMirror returnType, JavaVisitorContext visitorContext) {
+        if (returnType instanceof NoType) {
+            return new JavaVoidElement();
+        } else if (returnType instanceof DeclaredType) {
+            DeclaredType dt = (DeclaredType) returnType;
+            Element e = dt.asElement();
+            List<? extends TypeMirror> typeArguments = dt.getTypeArguments();
+            if (e instanceof TypeElement) {
+                TypeElement typeElement = (TypeElement) e;
+                if (JavaModelUtils.resolveKind(typeElement, ElementKind.ENUM).isPresent()) {
+                    return new JavaEnumElement(
+                            typeElement,
+                            visitorContext.getAnnotationUtils().getAnnotationMetadata(typeElement),
+                            visitorContext,
+                            typeArguments
+                    );
+                } else {
+                    return new JavaClassElement(
+                            typeElement,
+                            visitorContext.getAnnotationUtils().getAnnotationMetadata(typeElement),
+                            visitorContext,
+                            typeArguments
+                    );
+                }
+            }
+        } else if (returnType instanceof PrimitiveType) {
+            PrimitiveType pt = (PrimitiveType) returnType;
+            return JavaPrimitiveElement.valueOf(pt.toString().toUpperCase(Locale.ENGLISH));
+        } else if (returnType instanceof TypeVariable) {
+            TypeVariable tv = (TypeVariable) returnType;
+            TypeMirror upperBound = tv.getUpperBound();
+            ClassElement classElement = mirrorToClassElement(upperBound, visitorContext);
+            if (classElement != null) {
+                return classElement;
+            } else {
+                return mirrorToClassElement(tv.getLowerBound(), visitorContext);
+            }
+        } else if (returnType instanceof ArrayType) {
+            ArrayType at = (ArrayType) returnType;
+            TypeMirror componentType = at.getComponentType();
+            ClassElement arrayType = mirrorToClassElement(componentType, visitorContext);
+            if (arrayType != null) {
+                if (arrayType instanceof JavaPrimitiveElement) {
+                    JavaPrimitiveElement jpe = (JavaPrimitiveElement) arrayType;
+                    return jpe.toArray();
+                } else {
+                    return new JavaClassElement((TypeElement) arrayType.getNativeType(), arrayType, visitorContext) {
+                        @Override
+                        public boolean isArray() {
+                            return true;
+                        }
+                    };
+                }
+            }
+        }
+        return null;
     }
 }

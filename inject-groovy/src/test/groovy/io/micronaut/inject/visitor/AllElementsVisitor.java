@@ -17,21 +17,60 @@
 package io.micronaut.inject.visitor;
 
 import io.micronaut.http.annotation.Controller;
+import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.Element;
+import io.micronaut.inject.ast.FieldElement;
+import io.micronaut.inject.ast.MethodElement;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class AllElementsVisitor implements TypeElementVisitor<Controller, Object> {
-    public static List<String> VISITED_ELEMENTS = new ArrayList<>();
+    private static List<String> VISITED_ELEMENTS = new ArrayList<>();
+    private static Map<VisitorContext, Boolean> started = new LinkedHashMap<>();
+    private static Map<VisitorContext, Boolean> finished = new LinkedHashMap<>();
+    public static List<ClassElement> VISITED_CLASS_ELEMENTS = new ArrayList<>();
+    public static List<MethodElement> VISITED_METHOD_ELEMENTS = new ArrayList<>();
+
+    public static List<String> getVisited() {
+        return Collections.unmodifiableList(VISITED_ELEMENTS);
+    }
+
+    public static void clearVisited() {
+        VISITED_ELEMENTS = new ArrayList<>();
+        VISITED_CLASS_ELEMENTS = new ArrayList<>();
+        VISITED_METHOD_ELEMENTS = new ArrayList<>();
+    }
+
+    @Override
+    public void start(VisitorContext visitorContext) {
+        if (started.containsKey(visitorContext)) {
+            throw new RuntimeException("Started should be null");
+        }
+        started.put(visitorContext, true);
+        VISITED_ELEMENTS.clear();
+        VISITED_CLASS_ELEMENTS.clear();
+        VISITED_METHOD_ELEMENTS.clear();
+    }
+
+
+    @Override
+    public void finish(VisitorContext visitorContext) {
+        if (finished.containsKey(visitorContext)) {
+            throw new RuntimeException("Finished should be null");
+        }
+        finished.put(visitorContext, true);
+    }
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         visit(element);
+        VISITED_CLASS_ELEMENTS.add(element);
     }
 
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
         visit(element);
+        VISITED_METHOD_ELEMENTS.add(element);
     }
 
     @Override
@@ -39,7 +78,7 @@ public class AllElementsVisitor implements TypeElementVisitor<Controller, Object
         visit(element);
     }
 
-    private void visit(Element element) {
+    void visit(Element element) {
         VISITED_ELEMENTS.add(element.getName());
     }
 }

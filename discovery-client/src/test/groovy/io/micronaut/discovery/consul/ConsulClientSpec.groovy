@@ -15,6 +15,7 @@
  */
 package io.micronaut.discovery.consul
 
+import io.micronaut.context.env.Environment
 import io.reactivex.Flowable
 import io.micronaut.context.ApplicationContext
 import io.micronaut.discovery.CompositeDiscoveryClient
@@ -25,6 +26,7 @@ import io.micronaut.discovery.consul.client.v1.*
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.runtime.server.EmbeddedServer
+import org.testcontainers.containers.GenericContainer
 import spock.lang.AutoCleanup
 import spock.lang.IgnoreIf
 import spock.lang.Shared
@@ -35,18 +37,40 @@ import spock.lang.Stepwise
  * @author graemerocher
  * @since 1.0
  */
-@IgnoreIf({ !System.getenv('CONSUL_HOST') && !System.getenv('CONSUL_PORT')})
 @Stepwise
 class ConsulClientSpec extends Specification {
+    @Shared
+    @AutoCleanup
+    GenericContainer consulContainer =
+            new GenericContainer("consul:latest")
+                    .withExposedPorts(8500)
 
-    @AutoCleanup @Shared EmbeddedServer embeddedServer = ApplicationContext.run(EmbeddedServer,
-            ['consul.client.host': System.getenv('CONSUL_HOST'),
-            'consul.client.port': System.getenv('CONSUL_PORT'),
-             "micronaut.caches.discoveryClient.enabled": false,
-            'consul.client.readTimeout': '5s']
-    )
-    @Shared ConsulClient client = embeddedServer.applicationContext.getBean(ConsulClient)
-    @Shared DiscoveryClient discoveryClient = embeddedServer.applicationContext.getBean(DiscoveryClient)
+    @Shared String consulHost
+    @Shared int consulPort
+    @Shared
+    Map<String, Object> embeddedServerConfig
+
+    @AutoCleanup
+    @Shared
+    EmbeddedServer embeddedServer
+
+    @Shared ConsulClient client
+    @Shared DiscoveryClient discoveryClient
+
+    def setupSpec() {
+        consulContainer.start()
+        consulHost = consulContainer.containerIpAddress
+        consulPort = consulContainer.getMappedPort(8500)
+        embeddedServerConfig = [
+                'consul.client.host': consulHost,
+                'consul.client.port': consulPort,
+                "micronaut.caches.discoveryClient.enabled": false,
+                'consul.client.readTimeout': '5s'
+        ] as Map<String, Object>
+        embeddedServer = ApplicationContext.run(EmbeddedServer, embeddedServerConfig, Environment.TEST)
+        client = embeddedServer.applicationContext.getBean(ConsulClient)
+        discoveryClient = embeddedServer.applicationContext.getBean(DiscoveryClient)
+    }
 
     void "test is a discovery client"() {
 
@@ -75,7 +99,6 @@ class ConsulClientSpec extends Specification {
         def entry = new CatalogEntry("test-node", InetAddress.getByName(url.host))
         boolean result = Flowable.fromPublisher(client.register(entry)).blockingFirst()
 
-
         then:
         result
         
@@ -100,27 +123,26 @@ class ConsulClientSpec extends Specification {
         Flowable.fromPublisher(client.deregister('xxxxxxxx')).blockingFirst()
 
         when:
+        int oldSize = Flowable.fromPublisher(client.getServices()).blockingFirst().size()
         def entry = new NewServiceEntry("test-service")
                             .address(embeddedServer.getHost())
                             .port(embeddedServer.getPort())
         Flowable.fromPublisher(client.register(entry)).blockingFirst()
-
-
-
         Map<String, ServiceEntry> entries = Flowable.fromPublisher(client.getServices()).blockingFirst()
 
         then:
-        entries.size() == 1
+        entries.size() == oldSize + 1
         entries.containsKey('test-service')
 
         when:
+        oldSize = entries.size()
         HttpStatus result = Flowable.fromPublisher(client.deregister('test-service')).blockingFirst()
         entries = Flowable.fromPublisher(client.getServices()).blockingFirst()
 
         then:
         result == HttpStatus.OK
         !entries.containsKey('test-service')
-        entries.size() == 0
+        entries.size() == oldSize - 1
     }
 
     void "test register service with health check"() {
@@ -136,8 +158,6 @@ class ConsulClientSpec extends Specification {
                 .check(check)
                 .id('xxxxxxxx')
         Flowable.fromPublisher(client.register(entry)).blockingFirst()
-
-
 
         then:
         entry.checks.size() == 1

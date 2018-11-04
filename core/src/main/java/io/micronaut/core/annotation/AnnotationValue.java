@@ -22,6 +22,7 @@ import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.value.ConvertibleValues;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArrayUtils;
+import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.value.ValueResolver;
 
 import javax.annotation.Nonnull;
@@ -52,6 +53,7 @@ public class AnnotationValue<A extends Annotation> implements ValueResolver<Char
      * @param values         The values
      */
     @SuppressWarnings("unchecked")
+    @UsedByGeneratedCode
     public AnnotationValue(String annotationName, Map<CharSequence, Object> values) {
         this.annotationName = annotationName.intern();
         this.convertibleValues = newConvertibleValues(values);
@@ -65,6 +67,7 @@ public class AnnotationValue<A extends Annotation> implements ValueResolver<Char
      * @param defaultValues The default values
      */
     @SuppressWarnings("unchecked")
+    @UsedByGeneratedCode
     public AnnotationValue(String annotationName, Map<CharSequence, Object> values, Map<String, Object> defaultValues) {
         this.annotationName = annotationName.intern();
         this.convertibleValues = newConvertibleValues(values);
@@ -76,6 +79,7 @@ public class AnnotationValue<A extends Annotation> implements ValueResolver<Char
      * @param annotationName The annotation name
      */
     @SuppressWarnings("unchecked")
+    @UsedByGeneratedCode
     public AnnotationValue(String annotationName) {
         this.annotationName = annotationName.intern();
         this.convertibleValues = ConvertibleValues.EMPTY;
@@ -103,6 +107,7 @@ public class AnnotationValue<A extends Annotation> implements ValueResolver<Char
      * @param convertibleValues The convertible values
      */
     @Internal
+    @UsedByGeneratedCode
     protected AnnotationValue(AnnotationValue<A> target, Map<String, Object> defaultValues, ConvertibleValues<Object> convertibleValues) {
         this.annotationName = target.annotationName;
         this.defaultValues = defaultValues != null ? defaultValues : target.defaultValues;
@@ -237,6 +242,9 @@ public class AnnotationValue<A extends Annotation> implements ValueResolver<Char
             List<AnnotationValue<T>> list = new ArrayList<>(values.length);
             String typeName = type.getName();
             for (AnnotationValue value : values) {
+                if (value == null) {
+                    continue;
+                }
                 if (value.getAnnotationName().equals(typeName)) {
                     //noinspection unchecked
                     list.add(value);
@@ -245,6 +253,19 @@ public class AnnotationValue<A extends Annotation> implements ValueResolver<Char
             return list;
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Gets a list of {@link AnnotationValue} for the given member.
+     *
+     * @param member The member
+     * @param type The type
+     * @param <T> The type
+     * @throws IllegalStateException If no member is available that conforms to the given name and type
+     * @return The result
+     */
+    public @Nonnull final <T extends Annotation> Optional<AnnotationValue<T>> getAnnotation(String member, Class<T> type) {
+        return getAnnotations(member, type).stream().findFirst();
     }
 
     @Override
@@ -286,13 +307,38 @@ public class AnnotationValue<A extends Annotation> implements ValueResolver<Char
     }
 
     /**
+     * Start building a new annotation for the given name.
+     *
+     * @param annotationName The annotation name
+     * @return The builder
+     */
+    public static AnnotationValueBuilder<?> builder(String annotationName) {
+        return new AnnotationValueBuilder<>(annotationName);
+    }
+
+    /**
+     * Start building a new annotation for the given name.
+     *
+     * @param annotation The annotation name
+     * @param <T> The annotation type
+     * @return The builder
+     */
+    public static <T extends Annotation> AnnotationValueBuilder<T> builder(Class<T> annotation) {
+        return new AnnotationValueBuilder<>(annotation);
+    }
+
+    /**
      * Subclasses can override to provide a custom convertible values instance.
      *
      * @param values The values
      * @return The instance
      */
     private ConvertibleValues<Object> newConvertibleValues(Map<CharSequence, Object> values) {
-        return ConvertibleValues.of(values);
+        if (CollectionUtils.isEmpty(values)) {
+            return ConvertibleValues.EMPTY;
+        } else {
+            return ConvertibleValues.of(values);
+        }
     }
 
 }

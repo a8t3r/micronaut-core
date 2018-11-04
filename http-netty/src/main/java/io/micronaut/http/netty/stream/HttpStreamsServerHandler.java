@@ -16,21 +16,14 @@
 
 package io.micronaut.http.netty.stream;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.http.netty.reactive.CancelledSubscriber;
 import io.micronaut.http.netty.reactive.HandlerPublisher;
 import io.micronaut.http.netty.reactive.HandlerSubscriber;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpUtil;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketVersion;
@@ -62,6 +55,7 @@ import java.util.NoSuchElementException;
  * @author jroper
  * @author Graeme Rocher
  */
+@Internal
 public class HttpStreamsServerHandler extends HttpStreamsHandler<HttpRequest, HttpResponse> {
 
     private HttpRequest lastRequest = null;
@@ -183,6 +177,11 @@ public class HttpStreamsServerHandler extends HttpStreamsHandler<HttpRequest, Ht
             }
             super.unbufferedWrite(ctx, out);
         }
+    }
+
+    @Override
+    protected boolean isValidOutMessage(Object msg) {
+        return msg instanceof FullHttpResponse || msg instanceof StreamedHttpResponse || msg instanceof WebSocketHttpResponse;
     }
 
     private boolean canHaveBody(HttpResponse message) {

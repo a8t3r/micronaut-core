@@ -16,6 +16,7 @@
 
 package io.micronaut.http.server.binding;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.bind.ArgumentBinder;
 import io.micronaut.core.convert.ArgumentConversionContext;
 import io.micronaut.core.convert.ConversionContext;
@@ -23,8 +24,9 @@ import io.micronaut.core.convert.ConversionError;
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpMethod;
 import io.micronaut.http.HttpRequest;
-import io.micronaut.http.server.binding.binders.BodyArgumentBinder;
-import io.micronaut.http.server.binding.binders.NonBlockingBodyArgumentBinder;
+import io.micronaut.http.bind.RequestBinderRegistry;
+import io.micronaut.http.bind.binders.BodyArgumentBinder;
+import io.micronaut.http.bind.binders.NonBlockingBodyArgumentBinder;
 import io.micronaut.web.router.RouteMatch;
 import io.micronaut.web.router.UnresolvedArgument;
 
@@ -43,6 +45,7 @@ import java.util.Optional;
  * @since 1.0
  */
 @Singleton
+@Internal
 public class RequestArgumentSatisfier {
 
     private final RequestBinderRegistry binderRegistry;
@@ -52,6 +55,13 @@ public class RequestArgumentSatisfier {
      */
     public RequestArgumentSatisfier(RequestBinderRegistry requestBinderRegistry) {
         this.binderRegistry = requestBinderRegistry;
+    }
+
+    /**
+     * @return The request binder registry
+     */
+    public RequestBinderRegistry getBinderRegistry() {
+        return binderRegistry;
     }
 
     /**

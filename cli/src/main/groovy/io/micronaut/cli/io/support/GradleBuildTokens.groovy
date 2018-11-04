@@ -15,6 +15,7 @@
  */
 package io.micronaut.cli.io.support
 
+import groovy.transform.InheritConstructors
 import io.micronaut.cli.profile.Feature
 import io.micronaut.cli.profile.Profile
 import io.micronaut.cli.profile.repository.MavenProfileRepository
@@ -25,10 +26,19 @@ import org.eclipse.aether.graph.Dependency
  * @author James Kleeh
  * @sicen 1.0
  */
+@InheritConstructors
 class GradleBuildTokens extends BuildTokens {
+
+    static final SCOPE_MAP = [
+            compile: 'compile',
+            runtime: 'runtime',
+            testCompile: 'testCompile',
+    ]
 
     Map getTokens(Profile profile, List<Feature> features) {
         Map tokens = [:]
+        tokens.put("testFramework", testFramework)
+        tokens.put("sourceLanguage", sourceLanguage)
 
         def ln = System.getProperty("line.separator")
 
@@ -44,31 +54,27 @@ class GradleBuildTokens extends BuildTokens {
         def dependencies = profileDependencies.findAll() { Dependency dep ->
             dep.scope != 'build'
         }
-        def buildDependencies = profileDependencies.findAll() { Dependency dep ->
-            dep.scope == 'build'
-        }
 
         for (Feature f in features) {
             dependencies.addAll f.dependencies.findAll() { Dependency dep -> dep.scope != 'build' }
-            buildDependencies.addAll f.dependencies.findAll() { Dependency dep -> dep.scope == 'build' }
         }
 
         dependencies = dependencies.unique()
 
         dependencies = dependencies.sort({ Dependency dep -> dep.scope }).collect() { Dependency dep ->
+            String scope = SCOPE_MAP.get(dep.scope)
+            if (scope == null) scope = dep.scope
             String artifactStr = resolveArtifactString(dep, 4)
-            "    ${dep.scope}${artifactStr}".toString()
-        }.unique().join(ln)
-
-        def buildRepositories = profile.buildRepositories.collect(repositoryUrl.curry(8)).unique().join(ln)
-
-        buildDependencies = buildDependencies.collect() { Dependency dep ->
-            String artifactStr = resolveArtifactString(dep, 8)
-            "        classpath${artifactStr}".toString()
+            "    ${scope}${artifactStr}".toString()
         }.unique().join(ln)
 
         def buildPlugins = profile.buildPlugins.collect() { String name ->
-            "apply plugin:\"$name\""
+            def nameAndVersion = name.split(":")
+            if (nameAndVersion.length == 2) {
+                "    id \"${nameAndVersion[0]}\" version \"${nameAndVersion[1]}\""
+            } else {
+                "apply plugin:\"$name\""
+            }
         }
 
         def jvmArgs = profile.jvmArgs
@@ -80,17 +86,24 @@ class GradleBuildTokens extends BuildTokens {
 
         for (Feature f in features) {
             buildPlugins.addAll f.buildPlugins.collect() { String name ->
-                "apply plugin:\"$name\""
+                def nameAndVersion = name.split(":")
+                if (nameAndVersion.length == 2) {
+                    "    id \"${nameAndVersion[0]}\" version \"${nameAndVersion[1]}\""
+                } else {
+                    "apply plugin:\"$name\""
+                }
             }
         }
 
-        buildPlugins = buildPlugins.unique().join(ln)
+        buildPlugins = buildPlugins.unique()
+
+        String buildDependencies = buildPlugins.findAll({!it.startsWith("apply")}).join(ln)
+        buildPlugins = buildPlugins.findAll({it.startsWith("apply")}).join(ln)
 
         tokens.put("jvmArgs", jvmArgs)
         tokens.put("buildPlugins", buildPlugins)
         tokens.put("dependencies", dependencies)
         tokens.put("buildDependencies", buildDependencies)
-        tokens.put("buildRepositories", buildRepositories)
         tokens.put("repositories", repositories)
         tokens.put("jdkversion", VersionInfo.getJdkVersion())
 

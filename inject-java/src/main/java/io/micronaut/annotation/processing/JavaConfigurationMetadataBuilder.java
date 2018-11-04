@@ -47,14 +47,21 @@ public class JavaConfigurationMetadataBuilder extends ConfigurationMetadataBuild
     /**
      * @param elements The {@link Elements}
      * @param types    The {@link Types}
+     * @param annotationUtils The annotation utils
      */
-    public JavaConfigurationMetadataBuilder(Elements elements, Types types) {
+    public JavaConfigurationMetadataBuilder(Elements elements, Types types, AnnotationUtils annotationUtils) {
         this.elements = elements;
-        this.annotationUtils = new AnnotationUtils(elements);
+        this.annotationUtils = annotationUtils;
         this.modelUtils = new ModelUtils(elements, types);
         // ensure initialization
-        annotationUtils.getAnnotationMetadata(elements.getTypeElement(ConfigurationReader.class.getName()));
-        annotationUtils.getAnnotationMetadata(elements.getTypeElement(EachProperty.class.getName()));
+        final TypeElement crte = elements.getTypeElement(ConfigurationReader.class.getName());
+        if (crte != null) {
+            this.annotationUtils.getAnnotationMetadata(crte);
+        }
+        final TypeElement epte = elements.getTypeElement(EachProperty.class.getName());
+        if (epte != null) {
+            this.annotationUtils.getAnnotationMetadata(epte);
+        }
     }
 
     /**

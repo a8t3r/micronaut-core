@@ -18,11 +18,13 @@ package io.micronaut.inject.qualifiers;
 
 import io.micronaut.context.Qualifier;
 import io.micronaut.context.annotation.Type;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.BeanType;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,6 +36,7 @@ import java.util.stream.Stream;
  * @author Graeme Rocher
  * @since 1.0
  */
+@Internal
 class TypeAnnotationQualifier<T> implements Qualifier<T> {
 
     private final List<Class> types;
@@ -42,8 +45,8 @@ class TypeAnnotationQualifier<T> implements Qualifier<T> {
      * @param types The types
      */
     TypeAnnotationQualifier(@Nullable Class<?>... types) {
-        this.types = new ArrayList<>();
         if (types != null) {
+            this.types = new ArrayList<>(types.length);
             for (Class<?> type : types) {
                 Type typeAnn = type.getAnnotation(Type.class);
                 if (typeAnn != null) {
@@ -52,6 +55,8 @@ class TypeAnnotationQualifier<T> implements Qualifier<T> {
                     this.types.add(type);
                 }
             }
+        } else {
+            this.types = Collections.emptyList();
         }
     }
 
@@ -88,7 +93,7 @@ class TypeAnnotationQualifier<T> implements Qualifier<T> {
      * @param type The type
      * @return Whether the types are compatible
      */
-    protected boolean areTypesCompatible(Class type) {
+    private boolean areTypesCompatible(Class type) {
         return types.stream().anyMatch(c ->
             c.isAssignableFrom(type)
         );

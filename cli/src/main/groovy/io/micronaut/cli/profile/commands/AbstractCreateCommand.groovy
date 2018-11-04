@@ -25,6 +25,7 @@ import io.micronaut.cli.console.logging.MicronautConsole
 import io.micronaut.cli.io.IOUtils
 import io.micronaut.cli.io.support.*
 import io.micronaut.cli.profile.Feature
+import io.micronaut.cli.profile.OneOfFeatureGroup
 import io.micronaut.cli.profile.Profile
 import io.micronaut.cli.profile.ProfileRepository
 import io.micronaut.cli.profile.ProfileRepositoryAware
@@ -114,6 +115,13 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
             def profile = createCommand.profileRepository.getProfile(createCommand.profile ?: createCommand.getDefaultProfile())
             def featureNames = profile.features.collect() { Feature f -> f.name }
 
+            if (createCommand instanceof AbstractCreateAppCommand) {
+                String lang = createCommand.lang?.name() ?: 'java'
+                Collection<SupportedLanguage> otherLangs = SupportedLanguage.values().findAll() { it.name() != lang}
+                for(o in otherLangs) {
+                    featureNames.removeIf({String n -> n.contains("-${o.name()}")})
+                }
+            }
             // if no feature specified, show all features for the selected profile
             if (!createCommand.features) {
                 return featureNames.iterator()
@@ -255,6 +263,7 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
         files
     }
 
+    @CompileStatic(TypeCheckingMode.SKIP)
     boolean handle(CreateServiceCommandObject cmd) {
         if (profileRepository == null) throw new IllegalStateException("Property 'profileRepository' must be set")
 
@@ -282,6 +291,11 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
 
             File projectTargetDirectory = cmd.inplace ? new File(".").canonicalFile : appFullDirectory.toAbsolutePath().normalize().toFile()
 
+            if (projectTargetDirectory.exists() && !cmd.inplace) {
+                MicronautConsole.instance.error("Cannot create the project because the target directory already exists")
+                return false
+            }
+
             def profiles = profileRepository.getProfileAndDependencies(profileInstance)
 
             Map<Profile, File> targetDirs = [:]
@@ -302,13 +316,13 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
 
                 copySkeleton(profileInstance, p, cmd)
 
-                ymlCache.each { File applicationYmlFile, String previousApplicationYml ->
-                    if (applicationYmlFile.exists()) {
-                        appendToYmlSubDocument(applicationYmlFile, previousApplicationYml)
+                for (Map.Entry<File, String> entry: ymlCache.entrySet()) {
+                    if (entry.getKey().exists()) {
+                        appendToYmlSubDocument(entry.getKey(), entry.getValue())
                     }
                 }
             }
-            def ant = new ConsoleAntBuilder()
+            AntBuilder ant = new ConsoleAntBuilder()
 
             for (Feature f in features) {
                 def location = f.location
@@ -328,9 +342,9 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
                 if (skeletonDir.exists()) {
                     copySrcToTarget(ant, skeletonDir, ['**/' + APPLICATION_YML], profileInstance.binaryExtensions)
                     copySrcToTarget(ant, new File(skeletonDir, cmd.build + "-build"), ['**/' + APPLICATION_YML], profileInstance.binaryExtensions)
+                    ant.chmod(dir: targetDirectory, includes: profileInstance.executablePatterns.join(' '), perm: 'u+x')
                 }
             }
-
 
             replaceBuildTokens(cmd.build, profileInstance, features, projectTargetDirectory)
 
@@ -342,7 +356,7 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
             MicronautCli.tiggerAppLoad()
             return true
         } else {
-            System.err.println "Cannot find profile $profileName"
+            MicronautConsole.getInstance().error "Cannot find profile $profileName"
             return false
         }
     }
@@ -354,6 +368,10 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
     protected boolean validateProfile(Profile profileInstance, String profileName) {
         if (profileInstance == null) {
             MicronautConsole.instance.error("Profile not found for name [$profileName]")
+            return false
+        }
+        if (profileInstance.isAbstract()) {
+            MicronautConsole.instance.error("Profile [$profileName] is designed only for extension and not direct usage")
             return false
         }
         return true
@@ -389,38 +407,41 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
     protected void replaceBuildTokens(String build, Profile profile, List<Feature> features, File targetDirectory) {
         AntBuilder ant = new ConsoleAntBuilder()
 
-        Map tokens
-        if (build == "gradle") {
-            tokens = new GradleBuildTokens().getTokens(profile, features)
-        }
-        if (build == "maven") {
-            tokens = new MavenBuildTokens().getTokens(profile, features)
-        }
+        List<String> requestedFeatureNames = features.findAll { it.requested }*.name
+        List<String> allFeatureNames = features*.name
+        String testFramework = null
+        String sourceLanguage = null
 
-        if (tokens) {
-            List<String> requestedFeatureNames = features.findAll { it.requested }*.name
-            List<String> allFeatureNames = features*.name
+        if (profile.name != "profile") {
 
-            if (profile.name != "profile") {
-                String testFramework = null
-                String sourceLanguage = null
-
-                if (requestedFeatureNames) {
-                    testFramework = evaluateTestFramework(requestedFeatureNames)
-                    sourceLanguage = evaluateSourceLanguage(requestedFeatureNames)
-                }
-
-                if (!testFramework) {
-                    testFramework = evaluateTestFramework(allFeatureNames)
-                }
-
-                if (!sourceLanguage) {
-                    sourceLanguage = evaluateSourceLanguage(allFeatureNames)
-                }
-
-                tokens.put("testFramework", testFramework)
-                tokens.put("sourceLanguage", sourceLanguage)
+            if (requestedFeatureNames) {
+                testFramework = evaluateTestFramework(requestedFeatureNames)
+                sourceLanguage = evaluateSourceLanguage(requestedFeatureNames)
             }
+
+            if (!testFramework) {
+                testFramework = evaluateTestFramework(allFeatureNames)
+            }
+
+            if (!sourceLanguage) {
+                sourceLanguage = evaluateSourceLanguage(allFeatureNames)
+            }
+
+        }
+
+        BuildTokens buildTokens
+        if (build == "gradle") {
+            buildTokens = new GradleBuildTokens(sourceLanguage, testFramework)
+        } else if (build == "maven") {
+            buildTokens = new MavenBuildTokens(sourceLanguage, testFramework)
+        } else {
+            return
+        }
+
+        Map tokens = buildTokens.getTokens(profile, features)
+
+        if (tokens == null) {
+            return
         }
 
         ant.replace(dir: targetDirectory) {
@@ -441,6 +462,12 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
                 }
             }
         }
+
+        withTokens(buildTokens)
+    }
+
+    protected void withTokens(BuildTokens buildTokens) {
+        //no-op
     }
 
     protected static String evaluateTestFramework(List<String> features) {
@@ -475,22 +502,24 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
     protected static Iterable<Feature> evaluateFeatures(Profile profile, Set<String> requestedFeatures, String lang) {
 
         def (Set<Feature> features, List<String> validRequestedFeatureNames) = populateFeatures(profile, requestedFeatures, lang)
+        features = addDependentFeatures(profile, features)
+
         features = pruneOneOfFeatures(profile, features)
 
-
-        println "Generating ${getLanguage(features).capitalize()} project..."
-
+        String language = getLanguage(features)?.capitalize()
+        if (language) {
+            MicronautConsole.getInstance().addStatus "Generating ${language} project..."
+        }
 
         List<String> removedFeatures = validRequestedFeatureNames.findAll { !features*.name.contains(it) }
 
         if (removedFeatures) {
-            StringBuilder warning = new StringBuilder("The following features are incompatible with your language selection and have been removed from the project")
+            StringBuilder warning = new StringBuilder("The following features are incompatible with other feature selections and have been removed from the project")
             warning.append(System.getProperty('line.separator'))
             warning.append("| ${removedFeatures.join(", ")}")
             MicronautConsole.getInstance().warn(warning.toString())
         }
 
-        features = addDependentFeatures(profile, features)
         features
     }
 
@@ -530,7 +559,10 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
             return f.name == SupportedLanguage.java.name()
         } as Feature
 
-        features.add(langFeature)
+        if (langFeature) {
+            features.add(langFeature)
+        }
+
         features.addAll(profile.requiredFeatures)
 
         if (validRequestedFeatureNames) {
@@ -549,18 +581,20 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
 
     protected static Set<Feature> pruneOneOfFeatures(Profile profile, Set<Feature> features) {
         if (!profile.oneOfFeatures.empty) {
-            Set<Feature> toRemove = features.findAll { profile.oneOfFeatures*.feature.contains(it) }
+            profile.oneOfFeatures.each { OneOfFeatureGroup group ->
+                Set<Feature> toRemove = features.findAll { group.oneOfFeatures*.feature.contains(it) }
 
-            Feature requestedOneOf = toRemove.find { it.requested }
-            if (requestedOneOf) {
-                toRemove.remove(requestedOneOf)
-            } else {
-                toRemove.remove(toRemove[0])
-            }
+                Feature requestedOneOf = toRemove.find { it.requested }
+                if (requestedOneOf) {
+                    toRemove.remove(requestedOneOf)
+                } else {
+                    toRemove.remove(toRemove[0])
+                }
 
-            if (!toRemove.isEmpty()) {
-                features.removeAll(toRemove)
-                features = features.findAll { !it.getDependentFeatures(profile).any { toRemove.contains(it) } }
+                if (!toRemove.isEmpty()) {
+                    features.removeAll(toRemove)
+                    features = features.findAll { !it.getDependentFeatures(profile).any { toRemove.contains(it) } }
+                }
             }
         }
         features
@@ -570,14 +604,18 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
         Integer javaVersion = VersionInfo.getJavaVersion()
         features = features.findAll { it.isSupported(javaVersion) }
 
+        List<String> oneOfFeatureNames = []
+        profile.oneOfFeatures.each { g ->
+            oneOfFeatureNames.addAll(g.oneOfFeatures*.feature*.name)
+        }
+
         for (int i = 0; i < features.size(); i++) {
             Feature feature = features[i]
 
-            Iterator<Feature> dependents = feature.getDependentFeatures(profile).iterator()
-            while (dependents.hasNext()) {
-                Feature d = dependents.next()
+            List<Feature> dependents = feature.getDependentFeatures(profile).toList() + feature.getDefaultFeatures(profile).toList()
+            for (Feature d: dependents) {
 
-                if (!oneOfOnly || profile.oneOfFeatures*.feature*.name?.contains(d.name)) {
+                if (!oneOfOnly || oneOfFeatureNames.contains(d.name)) {
                     if (d.isSupported(javaVersion)) {
                         if (feature.requested) {
                             d.requested = true
@@ -592,7 +630,8 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
     }
 
     protected static String getLanguage(Set<Feature> features) {
-        features.find { SupportedLanguage.values()*.name().contains(it.name)}.name
+        List<String> names = SupportedLanguage.values()*.name()
+        features.find { names.contains(it.name) }?.name
     }
 
     protected String getDefaultProfile() {
@@ -645,6 +684,13 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
 
         try {
             defaultpackagename = establishGroupAndAppName(groupAndAppName)
+
+            if (!NameUtils.isValidServiceId(appname)) {
+                MicronautConsole.instance.error("Application name should be all lower case and separated by underscores. For example: hello-world")
+                return false
+            } else {
+                return true
+            }
         } catch (IllegalArgumentException e) {
             MicronautConsole.instance.error(e.message)
             return false
@@ -681,6 +727,7 @@ abstract class AbstractCreateCommand extends ArgumentCompletingCommand implement
             groupname = parts[0..-2].join('.')
             defaultPackage = groupname
         }
+
         return defaultPackage
     }
 

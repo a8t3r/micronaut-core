@@ -16,14 +16,33 @@
 
 package io.micronaut.ast.groovy.visitor;
 
-import io.micronaut.inject.visitor.Element;
+import groovy.lang.GroovyClassLoader;
+import io.micronaut.ast.groovy.utils.AstAnnotationUtils;
+import io.micronaut.core.convert.ArgumentConversionContext;
+import io.micronaut.core.convert.value.MutableConvertibleValues;
+import io.micronaut.core.convert.value.MutableConvertibleValuesMap;
+import io.micronaut.core.reflect.ClassUtils;
+import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.Element;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.inject.writer.DirectoryClassWriterOutputVisitor;
+import io.micronaut.inject.writer.GeneratedFile;
 import org.codehaus.groovy.ast.ASTNode;
+import org.codehaus.groovy.ast.ClassHelper;
+import org.codehaus.groovy.ast.ClassNode;
+import org.codehaus.groovy.ast.ModuleNode;
 import org.codehaus.groovy.control.ErrorCollector;
 import org.codehaus.groovy.control.Janitor;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage;
 import org.codehaus.groovy.syntax.SyntaxException;
+
+import javax.annotation.Nullable;
+import java.io.File;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * The visitor context when visiting Groovy code.
@@ -33,9 +52,10 @@ import org.codehaus.groovy.syntax.SyntaxException;
  * @since 1.0
  */
 public class GroovyVisitorContext implements VisitorContext {
-
+    private static final String ATTR_VISITOR_ATTRIBUTES = "micronaut.visitor.attributes";
     private final ErrorCollector errorCollector;
     private final SourceUnit sourceUnit;
+    private final MutableConvertibleValues<Object> attributes;
 
     /**
      * @param sourceUnit The {@link SourceUnit}
@@ -43,6 +63,51 @@ public class GroovyVisitorContext implements VisitorContext {
     public GroovyVisitorContext(SourceUnit sourceUnit) {
         this.sourceUnit = sourceUnit;
         this.errorCollector = sourceUnit.getErrorCollector();
+        final ModuleNode ast = sourceUnit.getAST();
+        final boolean hasModule = ast != null;
+        final Object attrs = hasModule ? ast.getNodeMetaData(ATTR_VISITOR_ATTRIBUTES) : null;
+        if (attrs instanceof MutableConvertibleValues) {
+            this.attributes = (MutableConvertibleValues<Object>) attrs;
+        } else {
+            this.attributes = new MutableConvertibleValuesMap<>();
+            if (hasModule) {
+                ast.putNodeMetaData(ATTR_VISITOR_ATTRIBUTES, this.attributes);
+            }
+        }
+    }
+
+    @Override
+    public Optional<ClassElement> getClassElement(String name) {
+        if (name == null) {
+            return Optional.empty();
+        }
+        List<ClassNode> classes = sourceUnit.getAST().getClasses();
+        for (ClassNode aClass : classes) {
+            if (name.equals(aClass.getName())) {
+                return Optional.of(new GroovyClassElement(sourceUnit, aClass, AstAnnotationUtils.getAnnotationMetadata(sourceUnit, aClass)));
+            }
+        }
+
+        GroovyClassLoader classLoader = sourceUnit.getClassLoader();
+        if (classLoader != null) {
+            return ClassUtils.forName(name, classLoader).map(aClass -> {
+                ClassNode cn = ClassHelper.make(aClass);
+                return new GroovyClassElement(sourceUnit, cn, AstAnnotationUtils.getAnnotationMetadata(sourceUnit, cn));
+            });
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public void info(String message, Element element) {
+        ASTNode expr = (ASTNode) element.getNativeType();
+        final String sample = sourceUnit.getSample(expr.getLineNumber(), expr.getColumnNumber(), new Janitor());
+        System.err.println("Note: " + message + "\n\n" + sample);
+    }
+
+    @Override
+    public void info(String message) {
+        System.out.println("Note: " + message);
     }
 
     @Override
@@ -58,6 +123,41 @@ public class GroovyVisitorContext implements VisitorContext {
 
     }
 
+    @Override
+    public Optional<GeneratedFile> visitMetaInfFile(String path) {
+        File classesDir = sourceUnit.getConfiguration().getTargetDirectory();
+        if (classesDir != null) {
+
+            DirectoryClassWriterOutputVisitor outputVisitor = new DirectoryClassWriterOutputVisitor(
+                    classesDir
+            );
+            return outputVisitor.visitMetaInfFile(path);
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<GeneratedFile> visitGeneratedFile(String path) {
+        File classesDir = sourceUnit.getConfiguration().getTargetDirectory();
+        if (classesDir != null) {
+
+            DirectoryClassWriterOutputVisitor outputVisitor = new DirectoryClassWriterOutputVisitor(
+                    classesDir
+            );
+            return outputVisitor.visitGeneratedFile(path);
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * @return The source unit
+     */
+    SourceUnit getSourceUnit() {
+        return sourceUnit;
+    }
+
     private SyntaxErrorMessage buildErrorMessage(String message, Element element) {
         ASTNode expr = (ASTNode) element.getNativeType();
         return new SyntaxErrorMessage(
@@ -65,4 +165,33 @@ public class GroovyVisitorContext implements VisitorContext {
                 expr.getLastLineNumber(), expr.getLastColumnNumber()), sourceUnit);
     }
 
+    @Override
+    public MutableConvertibleValues<Object> put(CharSequence key, @Nullable Object value) {
+        return attributes.put(key, value);
+    }
+
+    @Override
+    public MutableConvertibleValues<Object> remove(CharSequence key) {
+        return attributes.remove(key);
+    }
+
+    @Override
+    public MutableConvertibleValues<Object> clear() {
+        return attributes.clear();
+    }
+
+    @Override
+    public Set<String> names() {
+        return attributes.names();
+    }
+
+    @Override
+    public Collection<Object> values() {
+        return attributes.values();
+    }
+
+    @Override
+    public <T> Optional<T> get(CharSequence name, ArgumentConversionContext<T> conversionContext) {
+        return attributes.get(name, conversionContext);
+    }
 }

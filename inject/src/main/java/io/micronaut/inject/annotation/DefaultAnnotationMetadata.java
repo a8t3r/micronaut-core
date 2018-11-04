@@ -16,14 +16,14 @@
 
 package io.micronaut.inject.annotation;
 
-import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.core.annotation.AnnotationUtil;
+import io.micronaut.core.annotation.*;
 import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.TypeConverter;
 import io.micronaut.core.convert.value.ConvertibleValues;
+import io.micronaut.core.reflect.ClassLoadingReporter;
 import io.micronaut.core.reflect.ClassUtils;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.core.value.OptionalValues;
@@ -33,6 +33,7 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.Repeatable;
 import java.lang.reflect.Array;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Default implementation of {@link AnnotationMetadata}.
@@ -80,12 +81,12 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
     Map<String, Map<CharSequence, Object>> declaredStereotypes;
     Map<String, Map<CharSequence, Object>> allStereotypes;
     Map<String, List<String>> annotationsByStereotype;
+    private Map<Class, List> annotationValuesByType = new ConcurrentHashMap<>(2);
 
     // should not be used in any of the read methods
     // The following fields are used only at compile time, and
-    Map<String, Map<CharSequence, Object>> annotationDefaultValues;
+    private Map<String, Map<CharSequence, Object>> annotationDefaultValues;
     private Map<String, String> repeated = null;
-    private Map<Class, List> annotationValuesByType = new HashMap<>();
 
     /**
      * Constructs empty annotation metadata.
@@ -104,6 +105,7 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
      * @param annotationsByStereotype The annotations by stereotype
      */
     @Internal
+    @UsedByGeneratedCode
     public DefaultAnnotationMetadata(
         @Nullable Map<String, Map<CharSequence, Object>> declaredAnnotations,
         @Nullable Map<String, Map<CharSequence, Object>> declaredStereotypes,
@@ -116,6 +118,13 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
         this.allStereotypes = allStereotypes;
         this.allAnnotations = allAnnotations;
         this.annotationsByStereotype = annotationsByStereotype;
+        if (ClassLoadingReporter.isReportingEnabled()) {
+            if (allAnnotations != null) {
+                for (String annotationName : allAnnotations.keySet()) {
+                    ClassUtils.forName(annotationName, DefaultAnnotationMetadata.class.getClassLoader()).ifPresent(ClassLoadingReporter::reportPresent);
+                }
+            }
+        }
     }
 
     @Override
@@ -135,7 +144,7 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
     }
 
     @Override
-    public <T> Optional<T> getValue(String annotation, String member, Class<T> requiredType) {
+    public <T> Optional<T> getValue(String annotation, String member, Argument<T> requiredType) {
         Optional<T> resolved = Optional.empty();
         if (allAnnotations != null && StringUtils.isNotEmpty(annotation)) {
             Map<CharSequence, Object> values = allAnnotations.get(annotation);
@@ -175,13 +184,17 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
     @Override
     public <T extends Annotation> List<AnnotationValue<T>> getAnnotationValuesByType(Class<T> annotationType) {
         if (annotationType != null) {
-            return this.annotationValuesByType.computeIfAbsent(annotationType, aClass -> {
-                List<AnnotationValue<T>> results = resolveAnnotationValuesByType(annotationType, allAnnotations, allStereotypes);
+            List<AnnotationValue<T>> results = annotationValuesByType.get(annotationType);
+            if (results == null) {
+
+                results = resolveAnnotationValuesByType(annotationType, allAnnotations, allStereotypes);
                 if (results != null) {
                     return results;
                 }
-                return Collections.emptyList();
-            });
+                results = Collections.emptyList();
+                annotationValuesByType.put(annotationType, results);
+            }
+            return results;
         }
         return Collections.emptyList();
     }
@@ -228,16 +241,6 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
 
         //noinspection unchecked
         return (T[]) AnnotationUtil.ZERO_ANNOTATIONS;
-    }
-
-    @Override
-    public <T> Optional<T> getDefaultValue(Class<? extends Annotation> annotation, String member, Class<T> requiredType) {
-        // Note this method should never reference the "annotationDefaultValues" field, which is used only at compile time
-        Map<String, Object> defaultValues = AnnotationMetadataSupport.getDefaultValues(annotation);
-        if (defaultValues.containsKey(member)) {
-            return ConversionService.SHARED.convert(defaultValues.get(member), requiredType);
-        }
-        return Optional.empty();
     }
 
     @Override
@@ -299,7 +302,7 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
     }
 
     @Override
-    public List<String> getDeclaredAnnotationNamesTypeByStereotype(String stereotype) {
+    public List<String> getDeclaredAnnotationNamesByStereotype(String stereotype) {
         if (annotationsByStereotype != null) {
             List<String> annotations = annotationsByStereotype.get(stereotype);
             if (annotations != null) {
@@ -317,6 +320,11 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
             return StringUtils.internListOf(stereotype);
         }
         return Collections.emptyList();
+    }
+
+    @Override
+    public Optional<Class<? extends Annotation>> getAnnotationType(String name) {
+        return AnnotationMetadataSupport.getAnnotationType(name);
     }
 
     @SuppressWarnings("Duplicates")
@@ -367,6 +375,16 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
             }
         }
         return OptionalValues.empty();
+    }
+
+    @Override
+    public <T> Optional<T> getDefaultValue(String annotation, String member, Argument<T> requiredType) {
+        // Note this method should never reference the "annotationDefaultValues" field, which is used only at compile time
+        Map<String, Object> defaultValues = AnnotationMetadataSupport.getDefaultValues(annotation);
+        if (defaultValues.containsKey(member)) {
+            return ConversionService.SHARED.convert(defaultValues.get(member), requiredType);
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -440,6 +458,7 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
      */
     @SuppressWarnings("unused")
     @Internal
+    @UsedByGeneratedCode
     protected static boolean areAnnotationDefaultsRegistered(String annotation) {
         return AnnotationMetadataSupport.hasDefaultValues(annotation);
     }
@@ -452,9 +471,24 @@ public class DefaultAnnotationMetadata extends AbstractAnnotationMetadata implem
      */
     @SuppressWarnings("unused")
     @Internal
+    @UsedByGeneratedCode
     protected static void registerAnnotationDefaults(String annotation, Map<String, Object> defaultValues) {
         AnnotationMetadataSupport.registerDefaultValues(annotation, defaultValues);
     }
+
+    /**
+     * Registers annotation default values. Used by generated byte code. DO NOT REMOVE.
+     *
+     * @param annotation The annotation name
+     * @param defaultValues The default values
+     */
+    @SuppressWarnings("unused")
+    @Internal
+    @UsedByGeneratedCode
+    protected static void registerAnnotationDefaults(AnnotationClassValue<?> annotation, Map<String, Object> defaultValues) {
+        AnnotationMetadataSupport.registerDefaultValues(annotation, defaultValues);
+    }
+
 
     /**
      * Adds a repeatable annotation value. If a value already exists will be added

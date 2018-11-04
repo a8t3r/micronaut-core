@@ -16,7 +16,8 @@
 package io.micronaut.docs.security.securityRule
 
 import io.micronaut.context.ApplicationContext
-import io.micronaut.docs.YamlAsciidocTagCleaner
+import io.micronaut.context.env.Environment
+import io.micronaut.testutils.YamlAsciidocTagCleaner
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.client.RxHttpClient
 import io.micronaut.runtime.server.EmbeddedServer
@@ -32,7 +33,7 @@ class IpPatternSpec extends Specification implements YamlAsciidocTagCleaner {
 micronaut:
   security:
     enabled: true
-    ipPatterns:
+    ip-patterns:
       - 127.0.0.1
       - 192.168.1.*
 '''//end::yamlconfig[]
@@ -42,7 +43,7 @@ micronaut:
     Map<String, Object> ipPatternsMap = ['micronaut': [
             'security': [
                     'enabled'    : true,
-                    'ipPatterns' : ['127.0.0.1', '192.168.1.*']
+                    'ip-patterns' : ['127.0.0.1', '192.168.1.*']
             ]
         ]
     ]
@@ -55,7 +56,7 @@ micronaut:
 
     @Shared
     @AutoCleanup
-    EmbeddedServer embeddedServer = ApplicationContext.run(EmbeddedServer, config as Map<String, Object>, "test")
+    EmbeddedServer embeddedServer = ApplicationContext.run(EmbeddedServer, config as Map<String, Object>, Environment.TEST)
 
     @Shared
     @AutoCleanup

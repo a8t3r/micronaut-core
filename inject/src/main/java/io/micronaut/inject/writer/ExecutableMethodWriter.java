@@ -21,6 +21,7 @@ import static io.micronaut.inject.writer.BeanDefinitionWriter.pushBuildArguments
 
 import io.micronaut.context.AbstractExecutableMethod;
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.AnnotationMetadataReference;
@@ -34,10 +35,7 @@ import org.objectweb.asm.commons.GeneratorAdapter;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Writes out {@link io.micronaut.inject.ExecutableMethod} implementations.
@@ -45,6 +43,7 @@ import java.util.Map;
  * @author Graeme Rocher
  * @since 1.0
  */
+@Internal
 public class ExecutableMethodWriter extends AbstractAnnotationMetadataWriter implements Opcodes {
 
     /**
@@ -64,6 +63,7 @@ public class ExecutableMethodWriter extends AbstractAnnotationMetadataWriter imp
     private final boolean isInterface;
     private String outerClassName = null;
     private boolean isStatic = false;
+    private final Map<String, GeneratorAdapter> loadTypeMethods = new HashMap<>();
 
     /**
      * @param beanFullClassName    The bean full class name
@@ -73,7 +73,7 @@ public class ExecutableMethodWriter extends AbstractAnnotationMetadataWriter imp
      * @param annotationMetadata   The annotation metadata
      */
     public ExecutableMethodWriter(String beanFullClassName, String methodClassName, String methodProxyShortName, boolean isInterface, AnnotationMetadata annotationMetadata) {
-        super(methodClassName, annotationMetadata);
+        super(methodClassName, annotationMetadata, false);
         this.classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
         this.beanFullClassName = beanFullClassName;
         this.methodProxyShortName = methodProxyShortName;
@@ -184,10 +184,16 @@ public class ExecutableMethodWriter extends AbstractAnnotationMetadataWriter imp
         constructorWriter.push(methodName);
 
         // 3rd argument the generic return type
-        // Argument.of(genericReturnType, returnTypeGenericTypes)
         if (genericReturnType instanceof Class && ((Class) genericReturnType).isPrimitive()) {
-            constructorWriter.visitInsn(ACONST_NULL);
+            Class javaType = (Class) genericReturnType;
+            String constantName = javaType.getName().toUpperCase(Locale.ENGLISH);
+
+            // refer to constant for primitives
+            Type type = Type.getType(Argument.class);
+            constructorWriter.getStatic(type, constantName, type);
+
         } else {
+            // Argument.of(genericReturnType, returnTypeGenericTypes)
             buildArgumentWithGenerics(
                 constructorWriter,
                 methodName,
@@ -198,11 +204,13 @@ public class ExecutableMethodWriter extends AbstractAnnotationMetadataWriter imp
         if (hasArgs) {
             // 4th argument: the generic types
             pushBuildArgumentsForMethod(
+                getTypeReferenceForName(getClassName()),
+                classWriter,
                 constructorWriter,
                 argumentTypes,
                 argumentAnnotationMetadata,
-                genericTypes
-            );
+                genericTypes,
+                loadTypeMethods);
             // now invoke super(..) if no arg constructor
             invokeConstructor(
                 executorMethodConstructor,
@@ -237,6 +245,11 @@ public class ExecutableMethodWriter extends AbstractAnnotationMetadataWriter imp
         );
 
         buildInvokeMethod(declaringTypeObject, methodName, returnType, argumentTypeClasses, invokeMethod);
+
+        for (GeneratorAdapter method : loadTypeMethods.values()) {
+            method.visitMaxs(3, 1);
+            method.visitEnd();
+        }
     }
 
     /**

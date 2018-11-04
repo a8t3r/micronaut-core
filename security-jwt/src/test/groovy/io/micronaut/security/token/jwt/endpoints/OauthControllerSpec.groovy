@@ -16,11 +16,13 @@
 package io.micronaut.security.token.jwt.endpoints
 
 import io.micronaut.context.ApplicationContext
+import io.micronaut.context.env.Environment
 import io.micronaut.context.exceptions.NoSuchBeanException
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.client.HttpClient
+import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.micronaut.inject.qualifiers.Qualifiers
 import io.micronaut.runtime.server.EmbeddedServer
 import io.micronaut.security.authentication.UsernamePasswordCredentials
@@ -35,6 +37,7 @@ import io.reactivex.Flowable
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class OauthControllerSpec extends Specification {
 
@@ -48,7 +51,7 @@ class OauthControllerSpec extends Specification {
                     'micronaut.security.endpoints.oauth.enabled': true,
                     'micronaut.security.token.jwt.enabled': true,
                     'micronaut.security.token.jwt.signatures.secret.generator.secret': 'qrD6h8K6S9503Q06Y6Rfk21TErImPYqa'
-            ], 'test')
+            ], Environment.TEST)
 
     @Shared
     @AutoCleanup
@@ -81,7 +84,7 @@ class OauthControllerSpec extends Specification {
         when:
         sleep(1_000) // Sleep for one second to give time for Claims issue date to be different
         final String originalAccessToken = rsp.body().accessToken
-        final String refreshToken = rsp.body().refreshToken
+        String refreshToken = rsp.body().refreshToken
         def tokenRefreshReq = new TokenRefreshRequest("refresh_token", refreshToken)
         HttpResponse refreshRsp = client.toBlocking().exchange(HttpRequest.POST('/oauth/access_token', tokenRefreshReq), AccessRefreshToken)
 
@@ -112,20 +115,20 @@ class OauthControllerSpec extends Specification {
         originalAccessTokenClaims.get(JwtClaims.NOT_BEFORE) != newAccessTokenClaims.get(JwtClaims.NOT_BEFORE)
     }
 
-    def "verify validateTokenRefreshRequest"() {
-        given:
-        OauthController oauthController = new OauthController(null, null)
+    @Unroll
+    def "grantType: #grantType refreshToken: #refreshToken is invalid"(String grantType, String refreshToken) {
+        when:
+        client.toBlocking().exchange(HttpRequest.POST('/oauth/access_token',
+                new TokenRefreshRequest(grantType, refreshToken)))
 
-        expect:
-        !oauthController.validateTokenRefreshRequest(new TokenRefreshRequest(grantType: null, refreshToken: "XXXX"))
+        then:
+        def e = thrown(HttpClientResponseException)
+        e.response.status() == HttpStatus.BAD_REQUEST
 
-        and:
-        !oauthController.validateTokenRefreshRequest(new TokenRefreshRequest(grantType: 'foo', refreshToken: "XXXX"))
-
-        and:
-        !oauthController.validateTokenRefreshRequest(new TokenRefreshRequest(grantType: 'refresh_token', refreshToken: null))
-
-        and:
-        oauthController.validateTokenRefreshRequest(new TokenRefreshRequest(grantType: 'refresh_token', refreshToken: "XXXX"))
+        where:
+        grantType        | refreshToken
+        null             | "XXXX"
+        'foo'            | "XXXX"
+        'refresh_token'  | null
     }
 }

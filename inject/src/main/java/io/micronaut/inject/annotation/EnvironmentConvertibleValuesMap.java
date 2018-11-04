@@ -18,7 +18,9 @@ package io.micronaut.inject.annotation;
 
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertyPlaceholderResolver;
+import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.convert.ArgumentConversionContext;
 import io.micronaut.core.convert.ConversionContext;
 import io.micronaut.core.convert.value.ConvertibleValues;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
  * @author graemerocher
  * @since 1.0
  */
+@Internal
 class EnvironmentConvertibleValuesMap<V> extends ConvertibleValuesMap<V> {
 
     private final Environment environment;
@@ -68,7 +71,10 @@ class EnvironmentConvertibleValuesMap<V> extends ConvertibleValuesMap<V> {
     @Override
     public <T> Optional<T> get(CharSequence name, ArgumentConversionContext<T> conversionContext) {
         V value = map.get(name);
-        if (value instanceof CharSequence) {
+        if (value instanceof AnnotationClassValue) {
+            AnnotationClassValue acv = (AnnotationClassValue) value;
+            return environment.convert(acv.getType().orElse(acv.getName()), conversionContext);
+        } else if (value instanceof CharSequence) {
             PropertyPlaceholderResolver placeholderResolver = environment.getPlaceholderResolver();
             String str = doResolveIfNecessary((CharSequence) value, placeholderResolver);
             return environment.convert(str, conversionContext);
@@ -110,7 +116,7 @@ class EnvironmentConvertibleValuesMap<V> extends ConvertibleValuesMap<V> {
 
     private String doResolveIfNecessary(CharSequence value, PropertyPlaceholderResolver placeholderResolver) {
         String str = value.toString();
-        if (str.contains("${")) {
+        if (str.contains(placeholderResolver.getPrefix())) {
             str = placeholderResolver.resolveRequiredPlaceholders(str);
         }
         return str;

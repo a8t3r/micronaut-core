@@ -53,13 +53,16 @@ class UriMatchTemplateSpec extends Specification {
 
         expect:
         info.isPresent() == matches
-        info.orElse(null)?.variables == variables
+        info.orElse(null)?.variableValues == variables
 
 
         where:
         template      | uri                  | nested                | matches | variables
+        "/books/"     | "/books/1"           | '{/id}'               | true    | [id: '1']
+        "/books"      | "/books/1"           | '{/id}'               | true    | [id: '1']
         "/"           | "/authors/2"         | '/authors{/authorId}' | true    | [authorId: '2']
         "/books{/id}" | "/books/1/authors/2" | '/authors{/authorId}' | true    | [id: '1', authorId: '2']
+        "/books"      | "/books/1"           | '{/id}'               | true    | [id: '1']
         ""            | "/authors/2"         | '/authors{/authorId}' | true    | [authorId: '2']
 
     }
@@ -72,7 +75,7 @@ class UriMatchTemplateSpec extends Specification {
 
         expect:
         info.isPresent() == matches
-        info.orElse(null)?.variables == variables
+        info.orElse(null)?.variableValues == variables
 
         where:
         template                         | uri                        | matches | variables
@@ -138,7 +141,7 @@ class UriMatchTemplateSpec extends Specification {
 
         expect:
         info.isPresent() == matches
-        info.orElse(null)?.variables == variables
+        info.orElse(null)?.variableValues == variables
 
         where:
         template                         | uri                   | matches | variables

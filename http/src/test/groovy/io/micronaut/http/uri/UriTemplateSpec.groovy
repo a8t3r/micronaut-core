@@ -34,6 +34,12 @@ class UriTemplateSpec extends Specification {
 
         where:
         template       | nested               | arguments                               | result
+        '/city'        | 'country/{name}'     | [name: 'Fred']                          | '/city/country/Fred'
+        '/city/'       | 'country/{name}'     | [name: 'Fred']                          | '/city/country/Fred'
+        '/city/'       | '/country/{name}'    | [name: 'Fred']                          | '/city/country/Fred'
+        '/city'        | '/country/{name}'    | [name: 'Fred']                          | '/city/country/Fred'
+        '/poetry'      | '/{?max}'            | [max: '10']                             | '/poetry?max=10'
+        '/poetry'      | '{?max}'             | [max: '10']                             | '/poetry?max=10'
         '/'            | '/hello/{name}'      | [name: 'Fred']                          | '/hello/Fred'
         ''             | '/hello/{name}'      | [name: 'Fred']                          | '/hello/Fred'
         '/test/'       | '/hello/{name}'      | [name: 'Fred']                          | '/test/hello/Fred'
@@ -44,6 +50,46 @@ class UriTemplateSpec extends Specification {
         '{var}{?q}'    | '/{var2}'            | [var: 'foo', var2: 'bar', q: 'test']    | 'foo/bar?q=test'
         '{var}{?q}'    | '{var2}'             | [var: 'foo', var2: 'bar', q: 'test']    | 'foo/bar?q=test'
         '{var}{#hash}' | '{var2}'             | [var: 'foo', var2: 'bar', hash: 'test'] | 'foo/bar#test'
+
+    }
+
+    @Unroll
+    void "Test nest template #template toString() with path #nested"() {
+        given:
+        UriTemplate uriTemplate = new UriTemplate(template)
+
+        expect:
+        uriTemplate.nest(nested).toString() == result
+
+        where:
+        template       | nested                         | result
+        '/city'        | '/'                            | '/city'
+        '/city'        | ''                             | '/city'
+        '/city'        | 'country/{name}'               | '/city/country/{name}'
+        '/city/'       | 'country/{name}'               | '/city/country/{name}'
+        '/city/'       | '/country/{name}'              | '/city/country/{name}'
+        '/city'        | '/country/{name}'              | '/city/country/{name}'
+        '/foo'         | '/find?{x,empty}'              | '/foo/find?{x,empty}'
+        '/foo'         | '/find{?x,empty}'              | '/foo/find{?x,empty}'
+        '/foo'         | '{/list*,path:4}'              | '/foo{/list*,path:4}'
+        '/person'      | '/{fred}'                      | '/person/{fred}'
+        '/books'       | '{/id}'                        | '/books{/id}'
+        '/books/'      | '{/id}'                        | '/books{/id}'
+        ""             | '/authors{/authorId}'          | '/authors{/authorId}'
+        '/'            | '/regex/{color:^blue|orange$}' | '/regex/{color:^blue|orange$}'
+        '/poetry'      | '/{?max}'                      | '/poetry{?max}'
+        '/poetry'      | '{?max}'                       | '/poetry{?max}'
+        '/'            | '/hello/{name}'                | '/hello/{name}'
+        ''             | '/hello/{name}'                | '/hello/{name}'
+        '/test/'       | '/hello/{name}'                | '/test/hello/{name}'
+        '{var}'        | '{var2}'                       | '{var}/{var2}'
+        '/book{/id}'   | '/author{/authorId}'           | '/book{/id}/author{/authorId}'
+        '{var}/'       | '{var2}'                       | '{var}/{var2}'
+        '{var}'        | '/{var2}'                      | '{var}/{var2}'
+        '{var}{?q}'    | '/{var2}'                      | '{var}/{var2}{?q}'
+        '{var}{#hash}' | '{var2}'                       | '{var}/{var2}{#hash}'
+        '/foo'         | '/find{?year*}'                | '/foo/find{?year*}'
+
 
     }
 
@@ -320,6 +366,8 @@ class UriTemplateSpec extends Specification {
         'http://example.com/{&list*}'            | [list: ['red', 'green', 'blue']]                   | 'http://example.com/&list=red&list=green&list=blue'
         'http://example.com/{&keys}'             | [keys: ['semi': ';', 'dot': '.', comma: ',']]      | 'http://example.com/&keys=semi,%3B,dot,.,comma,%2C'
         'http://example.com/{&keys*}'            | [keys: ['semi': ';', 'dot': '.', comma: ',']]      | 'http://example.com/&semi=%3B&dot=.&comma=%2C'
+        'http://example.com/foo{?query,number}'  | [query: 'mycelium', number: 100]                   | 'http://example.com/foo?query=mycelium&number=100'
+        'http://example.com/foo{?query,number}'  | [number: 100]                                      | 'http://example.com/foo?number=100'
     }
 
 

@@ -17,6 +17,7 @@
 package io.micronaut.inject.qualifiers;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.inject.BeanType;
 
@@ -31,10 +32,12 @@ import java.util.stream.Stream;
  * @author Graeme Rocher
  * @since 1.0
  */
+@Internal
 class AnnotationMetadataQualifier<T> extends NameQualifier<T> {
 
     private final AnnotationMetadata annotationMetadata;
     private final Class<? extends Annotation> annotationType;
+    private final String qualifiedName;
 
     /**
      * @param metadata The annotation metadata
@@ -44,6 +47,7 @@ class AnnotationMetadataQualifier<T> extends NameQualifier<T> {
         super(name);
         this.annotationMetadata = metadata;
         this.annotationType = null;
+        this.qualifiedName = null;
     }
 
     /**
@@ -54,6 +58,7 @@ class AnnotationMetadataQualifier<T> extends NameQualifier<T> {
         super(annotationType.getSimpleName());
         this.annotationMetadata = metadata;
         this.annotationType = annotationType;
+        this.qualifiedName = annotationType.getName();
     }
 
     @Override
@@ -62,11 +67,12 @@ class AnnotationMetadataQualifier<T> extends NameQualifier<T> {
         String v = annotationMetadata.getValue(Named.class, String.class).orElse(null);
         if (StringUtils.isNotEmpty(v)) {
             name = Character.toUpperCase(v.charAt(0)) + v.substring(1);
+            return reduceByName(beanType, candidates, name);
         } else {
             name = getName();
+            return reduceByAnnotation(beanType, candidates, name, qualifiedName);
         }
 
-        return reduceByAnnotation(beanType, candidates, name);
     }
 
     @Override

@@ -42,38 +42,42 @@ public class Authenticator {
     protected final Collection<AuthenticationProvider> authenticationProviders;
 
     /**
-     * @param authenticationProviders a List of availabble authentication providers
+     * @param authenticationProviders a List of available authentication providers
      */
     public Authenticator(Collection<AuthenticationProvider> authenticationProviders) {
         this.authenticationProviders = authenticationProviders;
     }
 
     /**
-     * @param credentials instance of {@link UsernamePasswordCredentials}
-     * @return Empty optional if authentication failed. If any {@link AuthenticationProvider} authenticates, that {@link AuthenticationResponse} is sent.
+     * Authenticates the user with the provided credentials.
+     *
+     * @param authenticationRequest Represents a request to authenticate.
+     * @return A publisher that emits {@link AuthenticationResponse} objects
      */
-    public Publisher<AuthenticationResponse> authenticate(UsernamePasswordCredentials credentials) {
+    public Publisher<AuthenticationResponse> authenticate(AuthenticationRequest authenticationRequest) {
         if (this.authenticationProviders == null) {
             return Flowable.empty();
         }
-        System.out.println(authenticationProviders.stream().map(AuthenticationProvider::getClass).map(Class::getName).collect(Collectors.joining()));
+        if (LOG.isDebugEnabled()) {
+            LOG.debug(authenticationProviders.stream().map(AuthenticationProvider::getClass).map(Class::getName).collect(Collectors.joining()));
+        }
         Iterator<AuthenticationProvider> providerIterator = authenticationProviders.iterator();
         if (providerIterator.hasNext()) {
             Flowable<AuthenticationProvider> providerFlowable = Flowable.just(providerIterator.next());
             AtomicReference<AuthenticationResponse> lastFailure = new AtomicReference<>();
-            return attemptAuthenticationRequest(credentials, providerIterator, providerFlowable, lastFailure);
+            return attemptAuthenticationRequest(authenticationRequest, providerIterator, providerFlowable, lastFailure);
         } else {
             return Flowable.empty();
         }
     }
 
     private Flowable<AuthenticationResponse> attemptAuthenticationRequest(
-        UsernamePasswordCredentials credentials,
+        AuthenticationRequest authenticationRequest,
         Iterator<AuthenticationProvider> providerIterator,
         Flowable<AuthenticationProvider> providerFlowable, AtomicReference<AuthenticationResponse> lastFailure) {
 
         return providerFlowable.switchMap(authenticationProvider -> {
-            Flowable<AuthenticationResponse> responseFlowable = Flowable.fromPublisher(authenticationProvider.authenticate(credentials));
+            Flowable<AuthenticationResponse> responseFlowable = Flowable.fromPublisher(authenticationProvider.authenticate(authenticationRequest));
             Flowable<AuthenticationResponse> authenticationAttemptFlowable = responseFlowable.switchMap(authenticationResponse -> {
                 if (authenticationResponse.isAuthenticated()) {
                     return Flowable.just(authenticationResponse);
@@ -81,7 +85,7 @@ public class Authenticator {
                     lastFailure.set(authenticationResponse);
                     // recurse
                     return attemptAuthenticationRequest(
-                        credentials,
+                        authenticationRequest,
                         providerIterator,
                         Flowable.just(providerIterator.next()),
                         lastFailure);
@@ -97,7 +101,7 @@ public class Authenticator {
                 if (providerIterator.hasNext()) {
                     // recurse
                     return attemptAuthenticationRequest(
-                        credentials,
+                        authenticationRequest,
                         providerIterator,
                         Flowable.just(providerIterator.next()),
                         lastFailure);

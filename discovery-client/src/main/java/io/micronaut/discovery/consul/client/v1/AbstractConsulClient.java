@@ -17,12 +17,13 @@
 package io.micronaut.discovery.consul.client.v1;
 
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.annotation.TypeHint;
 import io.micronaut.core.async.publisher.Publishers;
 import io.micronaut.core.naming.NameUtils;
 import io.micronaut.discovery.ServiceInstance;
 import io.micronaut.discovery.consul.ConsulConfiguration;
 import io.micronaut.discovery.consul.ConsulServiceInstance;
-import io.micronaut.http.client.Client;
+import io.micronaut.http.client.annotation.Client;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,14 @@ import java.util.Optional;
 @SuppressWarnings("unused")
 @Client(id = ConsulClient.SERVICE_ID, path = "/v1", configuration = ConsulConfiguration.class)
 @Requires(beans = ConsulConfiguration.class)
+@TypeHint({TTLCheck.class, HTTPCheck.class})
 public abstract class AbstractConsulClient implements ConsulClient {
+
+    static final String CONSUL_REGISTRATION_RETRY_COUNT = "${" + ConsulConfiguration.ConsulRegistrationConfiguration.PREFIX + ".retry-count:10}";
+    static final String CONSUL_REGISTRATION_RETRY_DELAY = "${" + ConsulConfiguration.ConsulRegistrationConfiguration.PREFIX + ".retry-delay:3s}";
+    static final String EXPR_CONSUL_CONFIG_RETRY_COUNT = "${" + ConsulConfiguration.ConsulConfigDiscoveryConfiguration.PREFIX + ".retry-count:3}";
+    static final String EXPR_CONSUL_CONFIG_RETRY_DELAY = "${" + ConsulConfiguration.ConsulConfigDiscoveryConfiguration.PREFIX + ".retry-delay:1s}";
+
     private static final Logger LOG = LoggerFactory.getLogger(AbstractConsulClient.class);
 
     private ConsulConfiguration consulConfiguration = new ConsulConfiguration();
@@ -72,11 +80,11 @@ public abstract class AbstractConsulClient implements ConsulClient {
         } else {
             ConsulConfiguration.ConsulDiscoveryConfiguration discovery = consulConfiguration.getDiscovery();
             boolean passing = discovery.isPassing();
-            Optional<String> datacenter = Optional.ofNullable(discovery.getDatacenters().get(serviceId));
-            Optional<String> tag = Optional.ofNullable(discovery.getTags().get(serviceId));
+            String datacenter = discovery.getDatacenters().get(serviceId);
+            String tag = discovery.getTags().get(serviceId);
             Optional<String> scheme = Optional.ofNullable(discovery.getSchemes().get(serviceId));
 
-            Publisher<List<HealthEntry>> healthyServicesPublisher = getHealthyServices(serviceId, Optional.of(passing), tag, datacenter);
+            Publisher<List<HealthEntry>> healthyServicesPublisher = getHealthyServices(serviceId, passing, tag, datacenter);
             return Publishers.map(healthyServicesPublisher, healthEntries -> {
                 List<ServiceInstance> serviceInstances = new ArrayList<>();
                 for (HealthEntry healthEntry : healthEntries) {

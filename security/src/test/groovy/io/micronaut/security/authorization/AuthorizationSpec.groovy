@@ -16,6 +16,7 @@
 package io.micronaut.security.authorization
 
 import io.micronaut.context.ApplicationContext
+import io.micronaut.context.env.Environment
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
@@ -35,12 +36,12 @@ class AuthorizationSpec extends Specification {
             'endpoints.beans.sensitive': true,
             'micronaut.security.enabled': true,
             'micronaut.security.endpoints.login.enabled': true,
-            'micronaut.security.interceptUrlMap': [
+            'micronaut.security.intercept-url-map': [
                     [pattern: '/urlMap/admin', access: ['ROLE_ADMIN', 'ROLE_X']],
                     [pattern: '/urlMap/**',    access: 'isAuthenticated()'],
                     [pattern: '/anonymous/**', access: 'isAnonymous()'],
             ]
-    ], "test")
+    ], Environment.TEST)
     @Shared @AutoCleanup RxHttpClient client = embeddedServer.applicationContext.createBean(RxHttpClient, embeddedServer.getURL())
 
     void "test /beans is secured"() {
@@ -66,6 +67,30 @@ class AuthorizationSpec extends Specification {
 
         when:
         HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET("/anonymous/hello")
+                .basicAuth("valid", "password"), String)
+
+        then:
+        response.body() == 'You are valid'
+    }
+
+    void "Authentication Argument Binders binds Principal if return type is Single"() {
+        expect:
+        embeddedServer.applicationContext.getBean(PrincipalArgumentBinder.class)
+
+        when:
+        HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET("/argumentbinder/singleprincipal")
+                .basicAuth("valid", "password"), String)
+
+        then:
+        response.body() == 'You are valid'
+    }
+
+    void "Authentication Argument Binders binds Authentication if return type is Single"() {
+        expect:
+        embeddedServer.applicationContext.getBean(PrincipalArgumentBinder.class)
+
+        when:
+        HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET("/argumentbinder/singleauthentication")
                 .basicAuth("valid", "password"), String)
 
         then:

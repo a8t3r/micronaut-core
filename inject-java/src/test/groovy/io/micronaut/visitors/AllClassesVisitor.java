@@ -17,6 +17,10 @@
 package io.micronaut.visitors;
 
 import io.micronaut.http.annotation.Get;
+import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.Element;
+import io.micronaut.inject.ast.FieldElement;
+import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.visitor.*;
 
 import java.util.ArrayList;
@@ -25,9 +29,16 @@ import java.util.List;
 public class AllClassesVisitor implements TypeElementVisitor<Object, Get> {
 
     public static List<String> VISITED_ELEMENTS = new ArrayList<>();
+    public static List<ClassElement> VISITED_CLASS_ELEMENTS = new ArrayList<>();
+
+    public AllClassesVisitor() {
+        VISITED_ELEMENTS.clear();
+        VISITED_CLASS_ELEMENTS.clear();
+    }
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
+        VISITED_CLASS_ELEMENTS.add(element);
         visit(element);
     }
 

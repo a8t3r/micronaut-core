@@ -16,6 +16,7 @@
 
 package io.micronaut.http.netty.stream;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.http.netty.reactive.HandlerPublisher;
 import io.micronaut.http.netty.reactive.HandlerSubscriber;
 import io.netty.channel.*;
@@ -39,6 +40,7 @@ import java.util.Queue;
  * @author Graeme Rocher
  * @since 1.0
  */
+@Internal
 abstract class HttpStreamsHandler<In extends HttpMessage, Out extends HttpMessage> extends ChannelDuplexHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpStreamsHandler.class);
@@ -173,7 +175,7 @@ abstract class HttpStreamsHandler<In extends HttpMessage, Out extends HttpMessag
     @Override
     public void channelRead(final ChannelHandlerContext ctx, Object msg) throws Exception {
 
-        if (inClass.isInstance(msg)) {
+        if (isValidInMessage(msg)) {
 
             receivedInMessage(ctx);
             final In inMsg = inClass.cast(msg);
@@ -181,6 +183,9 @@ abstract class HttpStreamsHandler<In extends HttpMessage, Out extends HttpMessag
             if (inMsg instanceof FullHttpMessage) {
 
                 // Forward as is
+                FullHttpMessage message = (FullHttpMessage) inMsg;
+                // will be released by fireChannelRead
+                message.retain();
                 ctx.fireChannelRead(inMsg);
                 consumedInMessage(ctx);
 
@@ -276,7 +281,7 @@ abstract class HttpStreamsHandler<In extends HttpMessage, Out extends HttpMessag
 
     @Override
     public void write(final ChannelHandlerContext ctx, Object msg, final ChannelPromise promise) throws Exception {
-        if (outClass.isInstance(msg)) {
+        if (isValidOutMessage(msg)) {
 
             Outgoing out = new Outgoing(outClass.cast(msg), promise);
             receivedOutMessage(ctx);
@@ -402,6 +407,22 @@ abstract class HttpStreamsHandler<In extends HttpMessage, Out extends HttpMessag
     }
 
     /**
+     * @param msg The message
+     * @return True if the handler should write the message
+     */
+    protected boolean isValidOutMessage(Object msg) {
+        return outClass.isInstance(msg);
+    }
+
+    /**
+     * @param msg The message
+     * @return True if the handler should read the message
+     */
+    protected boolean isValidInMessage(Object msg) {
+        return inClass.isInstance(msg);
+    }
+
+    /**
      * The outgoing class.
      */
     class Outgoing {
@@ -417,4 +438,5 @@ abstract class HttpStreamsHandler<In extends HttpMessage, Out extends HttpMessag
             this.promise = promise;
         }
     }
+
 }

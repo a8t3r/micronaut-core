@@ -16,6 +16,7 @@
 
 package io.micronaut.http.server.netty.binders;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.http.netty.stream.StreamedHttpRequest;
 import io.micronaut.context.BeanLocator;
 import io.micronaut.core.async.subscriber.TypedSubscriber;
@@ -27,8 +28,8 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.server.HttpServerConfiguration;
-import io.micronaut.http.server.binding.binders.DefaultBodyAnnotationBinder;
-import io.micronaut.http.server.binding.binders.NonBlockingBodyArgumentBinder;
+import io.micronaut.http.bind.binders.DefaultBodyAnnotationBinder;
+import io.micronaut.http.bind.binders.NonBlockingBodyArgumentBinder;
 import io.micronaut.http.server.netty.*;
 import io.micronaut.web.router.exceptions.UnsatisfiedRouteException;
 import io.micronaut.web.router.qualifier.ConsumesMediaTypeQualifier;
@@ -48,6 +49,7 @@ import java.util.Optional;
  * @since 1.0
  */
 @Singleton
+@Internal
 public class PublisherBodyBinder extends DefaultBodyAnnotationBinder<Publisher> implements NonBlockingBodyArgumentBinder<Publisher> {
 
     private static final Logger LOG = LoggerFactory.getLogger(NettyHttpServer.class);

@@ -16,6 +16,7 @@
 
 package io.micronaut.runtime.context.scope.refresh;
 
+import io.micronaut.aop.InterceptedProxy;
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.BeanRegistration;
 import io.micronaut.context.BeanResolutionContext;
@@ -115,21 +116,30 @@ public class RefreshScope implements CustomScope<Refreshable>, LifeCycle<Refresh
 
     @Override
     public void onApplicationEvent(RefreshEvent event) {
-        executorService.execute(() -> {
-            Map<String, Object> changes = event.getSource();
-            if (changes == RefreshEvent.ALL_KEYS) {
-                disposeOfAllBeans();
-                refreshAllConfigurationProperties();
-            } else {
-                disposeOfBeanSubset(changes.keySet());
-                refreshSubsetOfConfigurationProperties(changes.keySet());
-            }
-        });
+        executorService.execute(() -> onRefreshEvent(event));
+    }
 
+    /**
+     * Handle a {@link RefreshEvent} synchronously. This method blocks unlike {@link #onApplicationEvent(RefreshEvent)}.
+     *
+     * @param event The event
+     */
+    public final void onRefreshEvent(RefreshEvent event) {
+        Map<String, Object> changes = event.getSource();
+        if (changes == RefreshEvent.ALL_KEYS) {
+            disposeOfAllBeans();
+            refreshAllConfigurationProperties();
+        } else {
+            disposeOfBeanSubset(changes.keySet());
+            refreshSubsetOfConfigurationProperties(changes.keySet());
+        }
     }
 
     @Override
     public <T> Optional<BeanRegistration<T>> findBeanRegistration(T bean) {
+        if (bean instanceof InterceptedProxy) {
+            bean = ((InterceptedProxy<T>) bean).interceptedTarget();
+        }
         for (BeanRegistration beanRegistration : refreshableBeans.values()) {
             if (beanRegistration.getBean() == bean) {
                 return Optional.of(beanRegistration);

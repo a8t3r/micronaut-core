@@ -16,6 +16,7 @@
 
 package io.micronaut.http.server.netty.multipart;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.async.publisher.AsyncSingleResultPublisher;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.multipart.MultipartException;
@@ -44,6 +45,7 @@ import java.util.function.Supplier;
  * @author Graeme Rocher
  * @since 1.0
  */
+@Internal
 public class NettyStreamingFileUpload implements StreamingFileUpload {
 
     private static final Logger LOG = LoggerFactory.getLogger(NettyStreamingFileUpload.class);
@@ -87,7 +89,7 @@ public class NettyStreamingFileUpload implements StreamingFileUpload {
 
     @Override
     public long getSize() {
-        return fileUpload.definedLength();
+        return fileUpload.length();
     }
 
     @Override
@@ -112,6 +114,8 @@ public class NettyStreamingFileUpload implements StreamingFileUpload {
                 return destination != null && fileUpload.renameTo(destination);
             } catch (IOException e) {
                 throw new MultipartException("Error transferring file: " + fileUpload.getName(), e);
+            } finally {
+                fileUpload.release();
             }
         };
         if (isComplete()) {

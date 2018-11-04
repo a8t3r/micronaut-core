@@ -16,7 +16,8 @@
 
 package io.micronaut.http.server.codec;
 
-import io.micronaut.codec.CodecConfiguration;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.http.codec.CodecConfiguration;
 import io.micronaut.core.io.buffer.ByteBuffer;
 import io.micronaut.core.io.buffer.ByteBufferFactory;
 import io.micronaut.core.type.Argument;
@@ -48,6 +49,7 @@ import java.util.List;
  * @since 1.0
  */
 @Singleton
+@Internal
 public class TextStreamCodec implements MediaTypeCodec {
 
     public static final String CONFIGURATION_QUALIFIER = "text-stream";

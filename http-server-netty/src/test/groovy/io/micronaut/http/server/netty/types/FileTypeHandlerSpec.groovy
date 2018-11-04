@@ -36,16 +36,18 @@ import io.micronaut.http.server.types.files.SystemFileCustomizableResponseType
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 import static io.micronaut.http.HttpHeaders.*
 
 class FileTypeHandlerSpec extends AbstractMicronautSpec {
 
     private static File tempFile
+    private static String tempFileContents = "<html><head></head><body>HTML Page</body></html>"
 
     static {
         tempFile = File.createTempFile("fileTypeHandlerSpec", ".html")
-        tempFile.write("<html><head></head><body>HTML Page</body></html>")
+        tempFile.write(tempFileContents)
         tempFile
     }
 
@@ -59,8 +61,8 @@ class FileTypeHandlerSpec extends AbstractMicronautSpec {
         Integer.parseInt(response.header(CONTENT_LENGTH)) > 0
         response.headers.getDate(DATE) < response.headers.getDate(EXPIRES)
         response.header(CACHE_CONTROL) == "private, max-age=60"
-        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT") )
-        response.body() == "<html><head></head><body>HTML Page</body></html>"
+        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT")).truncatedTo(ChronoUnit.SECONDS)
+        response.body() == tempFileContents
     }
 
     void "test 304 is returned if the correct header is sent"() {
@@ -72,6 +74,17 @@ class FileTypeHandlerSpec extends AbstractMicronautSpec {
         then:
         response.code() == HttpStatus.NOT_MODIFIED.code
         response.header(DATE)
+    }
+
+    void "test cache control can be overridden"() {
+        when:
+        MutableHttpRequest<?> request = HttpRequest.GET('/test/custom-cache-control')
+        def response = rxClient.exchange(request, String).blockingFirst()
+
+        then:
+        response.code() == HttpStatus.OK.code
+        response.getHeaders().getAll(CACHE_CONTROL).size() == 1
+        response.header(CACHE_CONTROL) == "public, immutable, max-age=31556926"
     }
 
     void "test what happens when a file isn't found"() {
@@ -100,8 +113,8 @@ class FileTypeHandlerSpec extends AbstractMicronautSpec {
         Integer.parseInt(response.header(CONTENT_LENGTH)) > 0
         response.headers.getDate(DATE) < response.headers.getDate(EXPIRES)
         response.header(CACHE_CONTROL) == "private, max-age=60"
-        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT") )
-        response.body() == "<html><head></head><body>HTML Page</body></html>"
+        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT")).truncatedTo(ChronoUnit.SECONDS)
+        response.body() == tempFileContents
     }
 
     void "test when an attached file is returned with a name"() {
@@ -115,8 +128,8 @@ class FileTypeHandlerSpec extends AbstractMicronautSpec {
         Integer.parseInt(response.header(CONTENT_LENGTH)) > 0
         response.headers.getDate(DATE) < response.headers.getDate(EXPIRES)
         response.header(CACHE_CONTROL) == "private, max-age=60"
-        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT") )
-        response.body() == "<html><head></head><body>HTML Page</body></html>"
+        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT")).truncatedTo(ChronoUnit.SECONDS)
+        response.body() == tempFileContents
     }
 
     void "test the content type is honored when an attached file response is returned"() {
@@ -130,8 +143,8 @@ class FileTypeHandlerSpec extends AbstractMicronautSpec {
         Integer.parseInt(response.header(CONTENT_LENGTH)) > 0
         response.headers.getDate(DATE) < response.headers.getDate(EXPIRES)
         response.header(CACHE_CONTROL) == "private, max-age=60"
-        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT") )
-        response.body() == "<html><head></head><body>HTML Page</body></html>"
+        response.headers.getDate(LAST_MODIFIED) == ZonedDateTime.ofInstant(Instant.ofEpochMilli(tempFile.lastModified()), ZoneId.of("GMT")).truncatedTo(ChronoUnit.SECONDS)
+        response.body() == tempFileContents
     }
 
     void "test supports"() {
@@ -168,6 +181,12 @@ class FileTypeHandlerSpec extends AbstractMicronautSpec {
         @Get('/download')
         AttachedFile download() {
             new AttachedFile(tempFile)
+        }
+
+        @Get('/custom-cache-control')
+        HttpResponse<File> cacheControl() {
+            HttpResponse.ok(tempFile)
+                        .header(CACHE_CONTROL, "public, immutable, max-age=31556926")
         }
 
         @Get('/different-name')

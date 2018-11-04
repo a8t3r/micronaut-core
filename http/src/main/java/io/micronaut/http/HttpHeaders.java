@@ -16,13 +16,14 @@
 
 package io.micronaut.http;
 
-import io.micronaut.core.convert.value.ConvertibleMultiValues;
+import io.micronaut.core.type.Headers;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -34,7 +35,7 @@ import java.util.stream.Collectors;
  * @author Graeme Rocher
  * @since 1.0
  */
-public interface HttpHeaders extends ConvertibleMultiValues<String> {
+public interface HttpHeaders extends Headers {
 
     /**
      * {@code "Accept"}.
@@ -120,7 +121,6 @@ public interface HttpHeaders extends ConvertibleMultiValues<String> {
      * {@code "Authorization"}.
      */
     String AUTHORIZATION = "Authorization";
-
 
     /**
      * {@code "Authorization"}.
@@ -505,6 +505,7 @@ public interface HttpHeaders extends ConvertibleMultiValues<String> {
     default List<MediaType> accept() {
         return getAll(HttpHeaders.ACCEPT)
             .stream()
+            .flatMap(x -> Arrays.stream(x.split(",")))
             .map(MediaType::new)
             .distinct()
             .collect(Collectors.toList());

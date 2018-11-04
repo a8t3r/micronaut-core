@@ -5,7 +5,7 @@ import io.micronaut.http.MediaType
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Produces
-import io.micronaut.http.client.Client
+import io.micronaut.http.client.annotation.Client
 import io.micronaut.http.context.ServerRequestContext
 import io.micronaut.runtime.server.EmbeddedServer
 import io.micronaut.scheduling.TaskExecutors
@@ -44,7 +44,6 @@ class ServerRequestContextSpec extends Specification {
         "thread" | '/test-context/thread'
     }
 
-
     @Client('/test-context')
     static interface TestClient {
 
@@ -60,7 +59,6 @@ class ServerRequestContextSpec extends Specification {
         @Get("/thread")
         String thread()
     }
-
 
     @Controller('/test-context')
     @Produces(MediaType.TEXT_PLAIN)

@@ -32,8 +32,8 @@ dependencies {
     testCompile dependencyVersion("rxjava1.interop")
     testCompile dependencyVersion("reactor")
     testCompile project(":inject-java")
+    testCompile project(":inject-java-test")
     testCompile project(":inject-groovy")
-    testCompile "com.google.testing.compile:compile-testing:0.12"
     testCompile dependencyModuleVersion("gorm", "grails-datastore-gorm")
     testCompile files(org.gradle.internal.jvm.Jvm.current().toolsJar)
 }
@@ -49,6 +49,7 @@ shadowJar {
             }
         }
         exclude(project(":core"))
+        exclude(dependency('javax.annotation:.*:.*'))
         exclude(dependency("com.fasterxml.*:.*:.*"))
         exclude(dependency(dependencyVersion("slf4j")))
         exclude(dependency(dependencyVersion("snakeyaml")))

@@ -26,12 +26,14 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.http.client.*;
+import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.loadbalance.FixedLoadBalancer;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.BeanIdentifier;
 import io.micronaut.inject.ParametrizedProvider;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.runtime.context.scope.refresh.RefreshEvent;
+import io.micronaut.websocket.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,7 +87,7 @@ class ClientScope implements CustomScope<Client>, LifeCycle<ClientScope>, Applic
         if (annotation == null) {
             throw new DependencyInjectionException(resolutionContext, argument, "ClientScope called for injection point that is not annotated with @Client");
         }
-        if (!HttpClient.class.isAssignableFrom(argument.getType())) {
+        if (!HttpClient.class.isAssignableFrom(argument.getType()) && !WebSocketClient.class.isAssignableFrom(argument.getType())) {
             throw new DependencyInjectionException(resolutionContext, argument, "@Client used on type that is not an HttpClient");
         }
         if (!(provider instanceof ParametrizedProvider)) {

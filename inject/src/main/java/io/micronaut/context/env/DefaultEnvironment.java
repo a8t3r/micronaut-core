@@ -33,7 +33,6 @@ import io.micronaut.core.io.service.SoftServiceLoader;
 import io.micronaut.core.naming.NameUtils;
 import io.micronaut.core.order.OrderUtil;
 import io.micronaut.core.reflect.ClassUtils;
-import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.inject.BeanConfiguration;
 import org.slf4j.Logger;
@@ -66,10 +65,8 @@ import java.util.stream.Stream;
  */
 public class DefaultEnvironment extends PropertySourcePropertyResolver implements Environment {
 
-    //private static final String EC2_LINUX_HYPERVISOR_FILE = "/sys/hypervisor/uuid";
-    private static final String EC2_LINUX_HYPERVISOR_FILE = "/tmp/uuid";
+    private static final String EC2_LINUX_HYPERVISOR_FILE = "/sys/hypervisor/uuid";
     private static final String EC2_WINDOWS_HYPERVISOR_CMD = "wmic path win32_computersystemproduct get uuid";
-    private static final String PROPERTY_SOURCES_KEY = "micronaut.config.files";
     private static final String FILE_SEPARATOR = ",";
     private static final Logger LOG = LoggerFactory.getLogger(DefaultEnvironment.class);
     private static final String K8S_ENV = "KUBERNETES_SERVICE_HOST";
@@ -124,8 +121,8 @@ public class DefaultEnvironment extends PropertySourcePropertyResolver implement
     @SuppressWarnings("MagicNumber")
     public DefaultEnvironment(ClassPathResourceLoader resourceLoader, ConversionService conversionService, String... names) {
         super(conversionService);
-        Set<String> specifiedNames = new HashSet<>(3);
-        specifiedNames.addAll(CollectionUtils.setOf(names));
+        Set<String> specifiedNames = new LinkedHashSet<>(3);
+        specifiedNames.addAll(Arrays.asList(names));
 
         if (!specifiedNames.contains(Environment.FUNCTION) && shouldDeduceEnvironments()) {
             EnvironmentsAndPackage environmentsAndPackage = getEnvironmentsAndPackage();
@@ -183,6 +180,7 @@ public class DefaultEnvironment extends PropertySourcePropertyResolver implement
     public DefaultEnvironment addPropertySource(PropertySource propertySource) {
         propertySources.put(propertySource.getName(), propertySource);
         if (isRunning() && !reading.get()) {
+            resetCaches();
             processPropertySource(propertySource, PropertySource.PropertyConvention.JAVA_PROPERTIES);
         }
         return this;
@@ -260,6 +258,7 @@ public class DefaultEnvironment extends PropertySourcePropertyResolver implement
             for (int i = 0; i < catalog.length; i++) {
                 catalog[i] = null;
             }
+            resetCaches();
         }
         return this;
     }
@@ -350,7 +349,7 @@ public class DefaultEnvironment extends PropertySourcePropertyResolver implement
     protected void readPropertySources(String name) {
         List<PropertySource> propertySources = readPropertySourceList(name);
         propertySources.addAll(this.propertySources.values());
-        propertySources.addAll(readPropertySourceListFromFiles(System.getProperty(PROPERTY_SOURCES_KEY)));
+        propertySources.addAll(readPropertySourceListFromFiles(System.getProperty(Environment.PROPERTY_SOURCES_KEY)));
         propertySources.addAll(readPropertySourceListFromFiles(
             readPropertySourceListKeyFromEnvironment())
         );
@@ -369,7 +368,7 @@ public class DefaultEnvironment extends PropertySourcePropertyResolver implement
      * @return The comma-separated list of files
      */
     protected String readPropertySourceListKeyFromEnvironment() {
-        return System.getenv(StringUtils.convertDotToUnderscore(PROPERTY_SOURCES_KEY));
+        return System.getenv(StringUtils.convertDotToUnderscore(Environment.PROPERTY_SOURCES_KEY));
     }
 
     /**

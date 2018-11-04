@@ -18,6 +18,7 @@ package io.micronaut.http.server;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.convert.format.ReadableBytes;
+import io.micronaut.core.util.StringUtils;
 import io.micronaut.core.util.Toggleable;
 import io.micronaut.http.server.cors.CorsOriginConfiguration;
 import io.micronaut.runtime.ApplicationConfiguration;
@@ -42,23 +43,71 @@ import java.util.Optional;
 public class HttpServerConfiguration {
 
     /**
+     * The default port value.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final int DEFAULT_PORT = 8080;
+
+    /**
      * The prefix used for configuration.
      */
 
     public static final String PREFIX = "micronaut.server";
 
-    protected int port = -1; // default to random port
-    protected Optional<String> host = Optional.empty();
-    protected Optional<Integer> readTimeout;
-    @ReadableBytes
-    protected long maxRequestSize = 1024 * 1024 * 10; // 10MB
-    protected Duration readIdleTime = Duration.of(60, ChronoUnit.SECONDS);
-    protected Duration writeIdleTime = Duration.of(60, ChronoUnit.SECONDS);
-    protected Duration idleTime = Duration.of(60, ChronoUnit.SECONDS);
-    protected MultipartConfiguration multipart = new MultipartConfiguration();
-    protected CorsConfiguration cors = new CorsConfiguration();
-    protected Optional<String> serverHeader = Optional.empty();
-    protected boolean dateHeader = true;
+    /**
+     * The default value random port.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final int DEFAULT_RANDOM_PORT = -1;
+
+    /**
+     * The default max request size.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final long DEFAULT_MAX_REQUEST_SIZE = 1024 * 1024 * 10; // 10MB
+
+    /**
+     * The default read idle time in minutes.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final long DEFAULT_READ_IDLE_TIME_MINUTES = 5;
+
+    /**
+     * The default write idle time in minutes.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final long DEFAULT_WRITE_IDLE_TIME_MINUTES = 5;
+
+    /**
+     * The default date header.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final boolean DEFAULT_DATEHEADER = true;
+
+    /**
+     * The default idle time.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final long DEFAULT_IDLE_TIME_MINUTES = 5;
+
+    /**
+     * The default value for log handled exceptions.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final boolean DEFAULT_LOG_HANDLED_EXCEPTIONS = false;
+
+    private Integer port;
+    private String host;
+    private Integer readTimeout;
+    private long maxRequestSize = DEFAULT_MAX_REQUEST_SIZE;
+    private Duration readIdleTimeout = null;
+    private Duration writeIdleTimeout = null;
+    private Duration idleTimeout = Duration.of(DEFAULT_IDLE_TIME_MINUTES, ChronoUnit.MINUTES);
+    private MultipartConfiguration multipart = new MultipartConfiguration();
+    private CorsConfiguration cors = new CorsConfiguration();
+    private String serverHeader;
+    private boolean dateHeader = DEFAULT_DATEHEADER;
+    private boolean logHandledExceptions = DEFAULT_LOG_HANDLED_EXCEPTIONS;
 
     private final ApplicationConfiguration applicationConfiguration;
     private Charset defaultCharset;
@@ -106,22 +155,22 @@ public class HttpServerConfiguration {
     /**
      * @return The default server port
      */
-    public int getPort() {
-        return port;
+    public Optional<Integer> getPort() {
+        return Optional.ofNullable(port);
     }
 
     /**
      * @return The default host
      */
     public Optional<String> getHost() {
-        return host;
+        return Optional.ofNullable(host);
     }
 
     /**
      * @return The read timeout setting for the server
      */
     public Optional<Integer> getReadTimeout() {
-        return readTimeout;
+        return Optional.ofNullable(readTimeout);
     }
 
     /**
@@ -148,29 +197,29 @@ public class HttpServerConfiguration {
     /**
      * @return The default amount of time to allow read operation connections  to remain idle
      */
-    public Duration getReadIdleTime() {
-        return readIdleTime;
+    public Duration getReadIdleTimeout() {
+        return Optional.ofNullable(readIdleTimeout).orElse(idleTimeout);
     }
 
     /**
      * @return The default amount of time to allow write operation connections to remain idle
      */
-    public Duration getWriteIdleTime() {
-        return writeIdleTime;
+    public Duration getWriteIdleTimeout() {
+        return Optional.ofNullable(writeIdleTimeout).orElse(idleTimeout);
     }
 
     /**
      * @return The time to allow an idle connection for
      */
-    public Duration getIdleTime() {
-        return idleTime;
+    public Duration getIdleTimeout() {
+        return idleTimeout;
     }
 
     /**
      * @return The optional server header value
      */
     public Optional<String> getServerHeader() {
-        return serverHeader;
+        return Optional.ofNullable(serverHeader);
     }
 
     /**
@@ -181,21 +230,158 @@ public class HttpServerConfiguration {
     }
 
     /**
+     * @return True if exceptions handled by either an error
+     * route or exception handler should be logged
+     */
+    public boolean isLogHandledExceptions() {
+        return logHandledExceptions;
+    }
+
+    /**
+     * Sets the port to bind to. Default value ({@value #DEFAULT_RANDOM_PORT})
+     *
+     * @param port The port
+     */
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    /**
+     * Sets the host to bind to.
+     * @param host The host
+     */
+    public void setHost(String host) {
+        if (StringUtils.isNotEmpty(host)) {
+            this.host = host;
+        }
+    }
+
+    /**
+     * Sets the default read timeout.
+     *
+     * @param readTimeout The read timeout
+     */
+    public void setReadTimeout(Integer readTimeout) {
+        this.readTimeout = readTimeout;
+    }
+
+    /**
+     * Sets the name of the server header.
+     *
+     * @param serverHeader The server header
+     */
+    public void setServerHeader(String serverHeader) {
+        this.serverHeader = serverHeader;
+    }
+
+    /**
+     * Sets the maximum request size. Default value ({@value #DEFAULT_MAX_REQUEST_SIZE} => // 10MB)
+     *
+     * @param maxRequestSize The max request size
+     */
+    public void setMaxRequestSize(@ReadableBytes long maxRequestSize) {
+        this.maxRequestSize = maxRequestSize;
+    }
+
+    /**
+     * Sets the amount of time a connection can remain idle without any reads occurring. Default value ({@value #DEFAULT_READ_IDLE_TIME_MINUTES} seconds).
+     *
+     * @param readIdleTimeout The read idle time
+     */
+    public void setReadIdleTimeout(Duration readIdleTimeout) {
+        this.readIdleTimeout = readIdleTimeout;
+    }
+
+    /**
+     * Sets the amount of time a connection can remain idle without any writes occurring. Default value ({@value #DEFAULT_WRITE_IDLE_TIME_MINUTES} seconds).
+     *
+     * @param writeIdleTimeout The write idle time
+     */
+    public void setWriteIdleTimeout(Duration writeIdleTimeout) {
+        this.writeIdleTimeout = writeIdleTimeout;
+    }
+
+    /**
+     * Sets the idle time of connections for the server. Default value ({@value #DEFAULT_IDLE_TIME_MINUTES} seconds).
+     *
+     * @param idleTimeout The idle time
+     */
+    public void setIdleTimeout(Duration idleTimeout) {
+        if (idleTimeout != null) {
+            this.idleTimeout = idleTimeout;
+        }
+    }
+
+    /**
+     * Sets the multipart configuration.
+     *
+     * @param multipart The multipart configuration
+     */
+    public void setMultipart(MultipartConfiguration multipart) {
+        this.multipart = multipart;
+    }
+
+    /**
+     * Sets the cors configuration.
+     * @param cors The cors configuration
+     */
+    public void setCors(CorsConfiguration cors) {
+        this.cors = cors;
+    }
+
+    /**
+     * Sets whether a date header should be sent back. Default value ({@value #DEFAULT_DATEHEADER}).
+     *
+     * @param dateHeader True if a date header should be sent.
+     */
+    public void setDateHeader(boolean dateHeader) {
+        this.dateHeader = dateHeader;
+    }
+
+    /**
+     * Sets whether exceptions handled by either an error route or exception handler
+     * should still be logged. Default value ({@value #DEFAULT_LOG_HANDLED_EXCEPTIONS }).
+     *
+     * @param logHandledExceptions True if exceptions should be logged
+     */
+    public void setLogHandledExceptions(boolean logHandledExceptions) {
+        this.logHandledExceptions = logHandledExceptions;
+    }
+
+    /**
      * Configuration for multipart handling.
      */
     @ConfigurationProperties("multipart")
     public static class MultipartConfiguration implements Toggleable {
-        protected Optional<File> location = Optional.empty();
-        @ReadableBytes
-        protected long maxFileSize = 1024 * 1024; // 1MB
-        protected boolean enabled = true;
-        protected boolean disk = false;
+
+        /**
+         * The default enable value.
+         */
+        @SuppressWarnings("WeakerAccess")
+        public static final boolean DEFAULT_ENABLED = false;
+
+        /**
+         * The default max file size.
+         */
+        @SuppressWarnings("WeakerAccess")
+        public static final long DEFAULT_MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
+        /**
+         * The default disk value.
+         */
+        @SuppressWarnings("WeakerAccess")
+        public static final boolean DEFAULT_DISK = false;
+
+        private File location;
+        private long maxFileSize = DEFAULT_MAX_FILE_SIZE;
+        private boolean enabled = DEFAULT_ENABLED;
+        private boolean disk = DEFAULT_DISK;
 
         /**
          * @return The location to store temporary files
          */
         public Optional<File> getLocation() {
-            return location;
+            return Optional.ofNullable(location);
         }
 
         /**
@@ -219,6 +405,38 @@ public class HttpServerConfiguration {
         public boolean isDisk() {
             return disk;
         }
+
+        /**
+         * Sets the location to store files.
+         * @param location The location
+         */
+        public void setLocation(File location) {
+            this.location = location;
+        }
+
+        /**
+         * Sets the max file size. Default value ({@value #DEFAULT_MAX_FILE_SIZE} => 1MB).
+         * @param maxFileSize The max file size
+         */
+        public void setMaxFileSize(@ReadableBytes long maxFileSize) {
+            this.maxFileSize = maxFileSize;
+        }
+
+        /**
+         * Sets whether multipart processing is enabled. Default value ({@value #DEFAULT_ENABLED}).
+         * @param enabled True if it is enabled
+         */
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /**
+         * Sets whether to buffer data to disk or not. Default value ({@value #DEFAULT_DISK}).
+         * @param disk True if data should be written to disk
+         */
+        public void setDisk(boolean disk) {
+            this.disk = disk;
+        }
     }
 
     /**
@@ -227,9 +445,11 @@ public class HttpServerConfiguration {
     @ConfigurationProperties("cors")
     public static class CorsConfiguration implements Toggleable {
 
-        protected boolean enabled = false;
+        public static final boolean DEFAULT_ENABLED = false;
 
-        protected Map<String, CorsOriginConfiguration> configurations = Collections.emptyMap();
+        private boolean enabled = DEFAULT_ENABLED;
+
+        private Map<String, CorsOriginConfiguration> configurations = Collections.emptyMap();
 
         private Map<String, CorsOriginConfiguration> defaultConfiguration = new LinkedHashMap<>(1);
 
@@ -252,6 +472,22 @@ public class HttpServerConfiguration {
                 return defaultConfiguration;
             }
             return configurations;
+        }
+
+        /**
+         * Sets whether CORS is enabled. Default value ({@value #DEFAULT_ENABLED})
+         * @param enabled True if CORS is enabled
+         */
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /**
+         * Sets the CORS configurations.
+         * @param configurations The CORS configurations
+         */
+        public void setConfigurations(Map<String, CorsOriginConfiguration> configurations) {
+            this.configurations = configurations;
         }
     }
 }

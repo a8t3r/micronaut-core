@@ -55,49 +55,20 @@ import static org.codehaus.groovy.ast.ClassHelper.makeCached
 @GroovyASTTransformation(phase = CompilePhase.CANONICALIZATION)
 class TypeElementVisitorTransform implements ASTTransformation {
 
+    protected static Map<String, LoadedVisitor> loadedVisitors = null
+
     @Override
     void visit(ASTNode[] nodes, SourceUnit source) {
         ModuleNode moduleNode = source.getAST()
         List<ClassNode> classes = moduleNode.getClasses()
 
-        SoftServiceLoader serviceLoader = SoftServiceLoader.load(TypeElementVisitor, InjectTransform.classLoader)
-        Map<String, LoadedVisitor> loadedVisitors = [:]
+        if (loadedVisitors == null) return
+
         GroovyVisitorContext visitorContext = new GroovyVisitorContext(source)
-
-        for (ServiceDefinition<TypeElementVisitor> definition: serviceLoader) {
-            if (definition.isPresent()) {
-                TypeElementVisitor visitor = definition.load()
-                LoadedVisitor newLoadedVisitor = new LoadedVisitor(visitor, visitorContext)
-                loadedVisitors.put(definition.getName(), newLoadedVisitor)
-            }
-        }
-
-        for(loadedVisitor in loadedVisitors.values()) {
-            try {
-                loadedVisitor.visitor.start(visitorContext)
-            } catch (Throwable e) {
-                AstMessageUtils.error(
-                        source,
-                        moduleNode,
-                        "Error starting type visitor [$loadedVisitor.visitor]: $e.message")
-            }
-        }
-
         for (ClassNode classNode in classes) {
             if (!(classNode instanceof InnerClassNode && !Modifier.isStatic(classNode.getModifiers()))) {
                 Collection<LoadedVisitor> matchedVisitors = loadedVisitors.values().findAll { v -> v.matches(classNode) }
-                new ElementVisitor(source, classNode, matchedVisitors).visitClass(classNode)
-            }
-        }
-
-        for(loadedVisitor in loadedVisitors.values()) {
-            try {
-                loadedVisitor.visitor.finish(visitorContext)
-            } catch (Throwable e) {
-                AstMessageUtils.error(
-                        source,
-                        moduleNode,
-                        "Error finalizing type visitor [$loadedVisitor.visitor]: $e.message")
+                new ElementVisitor(source, classNode, matchedVisitors, visitorContext).visitClass(classNode)
             }
         }
     }
@@ -106,14 +77,16 @@ class TypeElementVisitorTransform implements ASTTransformation {
 
         final SourceUnit sourceUnit
         final AnnotationMetadata annotationMetadata
+        final GroovyVisitorContext visitorContext
         private final ClassNode concreteClass
         private final Collection<LoadedVisitor> typeElementVisitors
 
-        ElementVisitor(SourceUnit sourceUnit, ClassNode targetClassNode, Collection<LoadedVisitor> typeElementVisitors) {
+        ElementVisitor(SourceUnit sourceUnit, ClassNode targetClassNode, Collection<LoadedVisitor> typeElementVisitors, GroovyVisitorContext visitorContext) {
             this.typeElementVisitors = typeElementVisitors
             this.concreteClass = targetClassNode
             this.sourceUnit = sourceUnit
-            this.annotationMetadata = AstAnnotationUtils.getAnnotationMetadata(targetClassNode)
+            this.annotationMetadata = AstAnnotationUtils.getAnnotationMetadata(sourceUnit, targetClassNode)
+            this.visitorContext = visitorContext
         }
 
         protected boolean isPackagePrivate(AnnotatedNode annotatedNode, int modifiers) {
@@ -122,9 +95,9 @@ class TypeElementVisitorTransform implements ASTTransformation {
 
         @Override
         void visitClass(ClassNode node) {
-            AnnotationMetadata annotationMetadata = AstAnnotationUtils.getAnnotationMetadata(node)
+            AnnotationMetadata annotationMetadata = AstAnnotationUtils.getAnnotationMetadata(sourceUnit, node)
             typeElementVisitors.each {
-                it.visit(node, annotationMetadata)
+                it.visit(node, annotationMetadata, visitorContext)
             }
 
             ClassNode superClass = node.getSuperClass()
@@ -144,9 +117,9 @@ class TypeElementVisitorTransform implements ASTTransformation {
 
         @Override
         protected void visitConstructorOrMethod(MethodNode methodNode, boolean isConstructor) {
-            AnnotationMetadata methodAnnotationMetadata = AstAnnotationUtils.getAnnotationMetadata(methodNode)
+            AnnotationMetadata methodAnnotationMetadata = AstAnnotationUtils.getAnnotationMetadata(sourceUnit, methodNode)
             typeElementVisitors.findAll { it.matches(methodAnnotationMetadata) }.each {
-                it.visit(methodNode, methodAnnotationMetadata)
+                it.visit(methodNode, methodAnnotationMetadata, visitorContext)
             }
         }
 
@@ -160,9 +133,9 @@ class TypeElementVisitorTransform implements ASTTransformation {
             if (fieldNode.isSynthetic() && !isPackagePrivate(fieldNode, fieldNode.modifiers)) {
                 return
             }
-            AnnotationMetadata fieldAnnotationMetadata = AstAnnotationUtils.getAnnotationMetadata(fieldNode)
+            AnnotationMetadata fieldAnnotationMetadata = AstAnnotationUtils.getAnnotationMetadata(sourceUnit, fieldNode)
             typeElementVisitors.findAll { it.matches(fieldAnnotationMetadata) }.each {
-                it.visit(fieldNode, fieldAnnotationMetadata)
+                it.visit(fieldNode, fieldAnnotationMetadata, visitorContext)
             }
         }
 
@@ -174,9 +147,9 @@ class TypeElementVisitorTransform implements ASTTransformation {
             if (Modifier.isFinal(modifiers) || Modifier.isStatic(modifiers)) {
                 return
             }
-            AnnotationMetadata fieldAnnotationMetadata = AstAnnotationUtils.getAnnotationMetadata(fieldNode)
+            AnnotationMetadata fieldAnnotationMetadata = AstAnnotationUtils.getAnnotationMetadata(sourceUnit, fieldNode)
             typeElementVisitors.findAll { it.matches(fieldAnnotationMetadata) }.each {
-                it.visit(fieldNode, fieldAnnotationMetadata)
+                it.visit(fieldNode, fieldAnnotationMetadata, visitorContext)
             }
         }
     }

@@ -19,6 +19,7 @@ package io.micronaut.context;
 import io.micronaut.context.env.Environment;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.UsedByGeneratedCode;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
@@ -150,6 +151,7 @@ public abstract class AbstractExecutableMethod extends AbstractExecutable implem
      * @return The result
      */
     @SuppressWarnings("WeakerAccess")
+    @UsedByGeneratedCode
     protected abstract Object invokeInternal(Object instance, Object[] arguments);
 
     /**
@@ -194,15 +196,15 @@ public abstract class AbstractExecutableMethod extends AbstractExecutable implem
     /**
      * A {@link ReturnType} implementation.
      */
-    class ReturnTypeImpl implements ReturnType<Object> {
+    class ReturnTypeImpl implements ReturnType {
 
         @SuppressWarnings("unchecked")
         @Override
-        public Class<Object> getType() {
+        public Class<?> getType() {
             if (genericReturnType != null) {
-                return (Class<Object>) genericReturnType.getType();
+                return genericReturnType.getType();
             } else {
-                return (Class<Object>) getTargetMethod().getReturnType();
+                return void.class;
             }
         }
 

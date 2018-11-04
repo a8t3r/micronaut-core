@@ -40,10 +40,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.ArrayType;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.*;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -60,7 +57,7 @@ import java.util.stream.Collectors;
  * @since 1.0
  */
 @Internal
-class ModelUtils {
+public class ModelUtils {
 
     private final Elements elementUtils;
     private final Types typeUtils;
@@ -69,9 +66,16 @@ class ModelUtils {
      * @param elementUtils The {@link Elements}
      * @param typeUtils    The {@link Types}
      */
-    ModelUtils(Elements elementUtils, Types typeUtils) {
+    protected ModelUtils(Elements elementUtils, Types typeUtils) {
         this.elementUtils = elementUtils;
         this.typeUtils = typeUtils;
+    }
+
+    /**
+     * @return The type utilities
+     */
+    public Types getTypeUtils() {
+        return typeUtils;
     }
 
     /**
@@ -81,7 +85,7 @@ class ModelUtils {
      * @return The {@link TypeElement}
      */
     final TypeElement classElementFor(Element element) {
-        while (!(element.getKind().isClass() || element.getKind().isInterface())) {
+        while (!(JavaModelUtils.isClass(element) || JavaModelUtils.isInterface(element))) {
             element = element.getEnclosingElement();
         }
         return (TypeElement) element;
@@ -198,6 +202,7 @@ class ModelUtils {
      */
     Class<?> classOfPrimitiveArrayFor(String primitiveType) {
         try {
+
             switch (primitiveType) {
                 case "byte":
                     return Class.forName("[B");
@@ -286,7 +291,7 @@ class ModelUtils {
      * @return The type reference
      */
 
-    Object resolveTypeReferenceForTypeElement(TypeElement typeElement) {
+    String resolveTypeReferenceForTypeElement(TypeElement typeElement) {
         return JavaModelUtils.getClassName(typeElement);
     }
 
@@ -321,18 +326,23 @@ class ModelUtils {
             if (componentType.getKind().isPrimitive()) {
                 result = classOfPrimitiveArrayFor(resolvePrimitiveTypeReference(componentType).getName());
             } else {
-                result = typeUtils.erasure(type).toString();
+                final TypeMirror erased = typeUtils.erasure(componentType);
+                final Element e = typeUtils.asElement(erased);
+                if (e instanceof TypeElement) {
+                    result = resolveTypeReferenceForTypeElement((TypeElement) e) + "[]";
+                }
             }
         } else if (type.getKind() != VOID && type.getKind() != ERROR) {
-            TypeElement typeElement = elementUtils.getTypeElement(typeUtils.erasure(type).toString());
-            if (typeElement != null) {
-                result = resolveTypeReferenceForTypeElement(typeElement);
-            } else if (type instanceof DeclaredType) {
-                result = resolveTypeReferenceForTypeElement((TypeElement) ((DeclaredType) type).asElement());
+            final TypeMirror erased = typeUtils.erasure(type);
+            final Element element = typeUtils.asElement(erased);
+            if (element instanceof TypeElement) {
+                TypeElement te = (TypeElement) element;
+                result = resolveTypeReferenceForTypeElement(te);
             }
         }
         return result;
     }
+
 
     /**
      * Returns whether an element is package private.
@@ -466,7 +476,34 @@ class ModelUtils {
             DeclaredType dt = (DeclaredType) type;
             result = classOfPrimitiveFor(dt.asElement().getSimpleName().toString());
         } else {
-            result = classOfPrimitiveFor(type.toString());
+            if (type instanceof PrimitiveType) {
+                PrimitiveType pt = (PrimitiveType) type;
+                TypeKind kind = pt.getKind();
+                switch (kind) {
+                    case VOID:
+                        return void.class;
+                    case INT:
+                        return int.class;
+                    case BYTE:
+                        return byte.class;
+                    case CHAR:
+                        return char.class;
+                    case LONG:
+                        return long.class;
+                    case FLOAT:
+                        return float.class;
+                    case SHORT:
+                        return short.class;
+                    case DOUBLE:
+                        return double.class;
+                    case BOOLEAN:
+                        return boolean.class;
+                    default:
+                        result = classOfPrimitiveFor(type.toString());
+                }
+            } else {
+                result = classOfPrimitiveFor(type.toString());
+            }
         }
         return result;
     }

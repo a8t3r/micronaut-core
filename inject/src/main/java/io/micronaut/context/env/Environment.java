@@ -35,12 +35,31 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * The current application environment.
+ * <p>The current application environment. The environment represents the loaded configuration of the application
+ * for a current list of active environment names.</p>
+ * <p>
+ * <p>The active environment names can be obtained from the {@link #getActiveNames()} method and are established from one
+ * of the following sources:
+ * </p>
+ * <ul>
+ *     <li>Environment names passed to the {@link io.micronaut.context.ApplicationContext#run(String...)} method</li>
+ *     <li>The value of the {@link #ENVIRONMENTS_PROPERTY} system property</li>
+ *     <li>The value of the {@link #ENVIRONMENTS_ENV} environment variable</li>
+ *     <li>The class that started the application</li>
+ * </ul>
+ *
+ * <p>When establishing the environment name from the class the started the application Micronaut will inspect the stacktrace. If JUnit or Spock are
+ * featured in the stacktrace the {@link #TEST} environment is included. When running from Android the {@link #ANDROID} environment is included.</p>
  *
  * @author Graeme Rocher
  * @since 1.0
  */
 public interface Environment extends PropertyResolver, LifeCycle<Environment>, ConversionService<Environment>, ResourceLoader {
+
+    /**
+     * Constant for the the name micronaut.
+     */
+    String MICRONAUT = "micronaut";
 
     /**
      * The test environment.
@@ -143,6 +162,18 @@ public interface Environment extends PropertyResolver, LifeCycle<Environment>, C
     String HEROKU = "heroku";
 
     /**
+     * The key used to load additional property sources.
+     */
+    String PROPERTY_SOURCES_KEY = "micronaut.config.files";
+
+    /**
+     * The host name environment variable.
+     */
+    String HOSTNAME = "HOSTNAME";
+
+    /**
+     * Should respect the order as provided.
+     *
      * @return The active environment names
      */
     Set<String> getActiveNames();

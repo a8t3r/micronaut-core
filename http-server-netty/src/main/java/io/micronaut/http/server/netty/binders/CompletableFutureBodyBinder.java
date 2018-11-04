@@ -16,6 +16,7 @@
 
 package io.micronaut.http.server.netty.binders;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.http.netty.stream.StreamedHttpRequest;
 import io.micronaut.context.BeanLocator;
 import io.micronaut.core.async.subscriber.CompletionAwareSubscriber;
@@ -25,8 +26,8 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.server.HttpServerConfiguration;
-import io.micronaut.http.server.binding.binders.DefaultBodyAnnotationBinder;
-import io.micronaut.http.server.binding.binders.NonBlockingBodyArgumentBinder;
+import io.micronaut.http.bind.binders.DefaultBodyAnnotationBinder;
+import io.micronaut.http.bind.binders.NonBlockingBodyArgumentBinder;
 import io.micronaut.http.server.netty.DefaultHttpContentProcessor;
 import io.micronaut.http.server.netty.HttpContentProcessor;
 import io.micronaut.http.server.netty.HttpContentSubscriberFactory;
@@ -45,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
  * @since 1.0
  */
 @Singleton
+@Internal
 public class CompletableFutureBodyBinder extends DefaultBodyAnnotationBinder<CompletableFuture>
     implements NonBlockingBodyArgumentBinder<CompletableFuture> {
 

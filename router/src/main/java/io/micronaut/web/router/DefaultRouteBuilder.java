@@ -40,6 +40,7 @@ import io.micronaut.web.router.exceptions.RoutingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import javax.inject.Qualifier;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -179,9 +180,9 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
         if (this.statusRoutes.stream().anyMatch((route) -> route.status() == status && route.originatingType() == originatingClass)) {
             throw new RoutingException("Attempted to register multiple local routes for http status " + String.valueOf(status.getCode()));
         }
-        Optional<MethodExecutionHandle<Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
+        Optional<MethodExecutionHandle<?, Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
 
-        MethodExecutionHandle<Object> executableHandle = executionHandle.orElseThrow(() ->
+        MethodExecutionHandle<?, Object> executableHandle = executionHandle.orElseThrow(() ->
                 new RoutingException("No such route: " + type.getName() + "." + method)
         );
 
@@ -193,12 +194,12 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
     @Override
     public StatusRoute status(HttpStatus status, Class type, String method, Class[] parameterTypes) {
         // do not allow multiple @Error global routes defined for one status
-        if (this.statusRoutes.stream().anyMatch((route) -> route.status() == status)) {
+        if (this.statusRoutes.stream().anyMatch((route) -> route.status() == status && route.originatingType() == null)) {
             throw new RoutingException("Attempted to register multiple global routes for http status " + String.valueOf(status.getCode()));
         }
-        Optional<MethodExecutionHandle<Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
+        Optional<MethodExecutionHandle<?, Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
 
-        MethodExecutionHandle<Object> executableHandle = executionHandle.orElseThrow(() ->
+        MethodExecutionHandle<?, Object> executableHandle = executionHandle.orElseThrow(() ->
             new RoutingException("No such route: " + type.getName() + "." + method)
         );
 
@@ -209,9 +210,12 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
 
     @Override
     public ErrorRoute error(Class originatingClass, Class<? extends Throwable> error, Class type, String method, Class[] parameterTypes) {
-        Optional<MethodExecutionHandle<Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
+        if (this.errorRoutes.stream().anyMatch((route) -> route.exceptionType() == error && route.originatingType() == originatingClass)) {
+            throw new RoutingException("Attempted to register multiple local error routes for exception " + error.getName());
+        }
+        Optional<MethodExecutionHandle<?, Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
 
-        MethodExecutionHandle<Object> executableHandle = executionHandle.orElseThrow(() ->
+        MethodExecutionHandle<?, Object> executableHandle = executionHandle.orElseThrow(() ->
             new RoutingException("No such route: " + type.getName() + "." + method)
         );
 
@@ -222,9 +226,12 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
 
     @Override
     public ErrorRoute error(Class<? extends Throwable> error, Class type, String method, Class[] parameterTypes) {
-        Optional<MethodExecutionHandle<Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
+        if (this.errorRoutes.stream().anyMatch((route) -> route.exceptionType() == error && route.originatingType() == null)) {
+            throw new RoutingException("Attempted to register multiple global error routes for exception " + error.getName());
+        }
+        Optional<MethodExecutionHandle<?, Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
 
-        MethodExecutionHandle<Object> executableHandle = executionHandle.orElseThrow(() ->
+        MethodExecutionHandle<?, Object> executableHandle = executionHandle.orElseThrow(() ->
             new RoutingException("No such route: " + type.getName() + "." + method)
         );
 
@@ -365,16 +372,16 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
      * @return an {@link UriRoute}
      */
     protected UriRoute buildRoute(HttpMethod httpMethod, String uri, Class<?> type, String method, Class... parameterTypes) {
-        Optional<MethodExecutionHandle<Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
+        Optional<? extends MethodExecutionHandle<?, Object>> executionHandle = executionHandleLocator.findExecutionHandle(type, method, parameterTypes);
 
-        MethodExecutionHandle<Object> executableHandle = executionHandle.orElseThrow(() ->
+        MethodExecutionHandle<?, Object> executableHandle = executionHandle.orElseThrow(() ->
             new RoutingException("No such route: " + type.getName() + "." + method)
         );
 
         return buildRoute(httpMethod, uri, executableHandle);
     }
 
-    private UriRoute buildRoute(HttpMethod httpMethod, String uri, MethodExecutionHandle<Object> executableHandle) {
+    private UriRoute buildRoute(HttpMethod httpMethod, String uri, MethodExecutionHandle<?, Object> executableHandle) {
         DefaultUriRoute route;
         if (currentParentRoute != null) {
             route = new DefaultUriRoute(httpMethod, currentParentRoute.uriMatchTemplate.nest(uri), executableHandle);
@@ -388,7 +395,7 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
 
     private UriRoute buildBeanRoute(HttpMethod httpMethod, String uri, BeanDefinition<?> beanDefinition, ExecutableMethod<?, ?> method) {
         io.micronaut.context.Qualifier<?> qualifier = beanDefinition.getAnnotationTypeByStereotype(Qualifier.class).map(aClass -> Qualifiers.byAnnotation(beanDefinition, aClass)).orElse(null);
-        MethodExecutionHandle<Object> executionHandle = executionHandleLocator.findExecutionHandle(beanDefinition.getBeanType(), qualifier, method.getMethodName(), method.getArgumentTypes())
+        MethodExecutionHandle<?, Object> executionHandle = executionHandleLocator.findExecutionHandle(beanDefinition.getBeanType(), qualifier, method.getMethodName(), method.getArgumentTypes())
                 .orElseThrow(() -> new RoutingException("No such route: " + beanDefinition.getBeanType().getName() + "." + method));
         return buildRoute(httpMethod, uri, executionHandle);
     }
@@ -511,6 +518,7 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
         }
 
         @Override
+        @Nullable
         public Class<?> originatingType() {
             return originatingClass;
         }
@@ -614,7 +622,7 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
     }
 
     /**
-     * Represents a route for an {@link HttpStatus} code.
+     * Represents a route for an {@link io.micronaut.http.HttpStatus} code.
      */
     class DefaultStatusRoute extends AbstractRoute implements StatusRoute, Comparable<StatusRoute> {
 
@@ -643,6 +651,7 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
         }
 
         @Override
+        @Nullable
         public Class<?> originatingType() {
             return originatingClass;
         }
@@ -691,7 +700,7 @@ public abstract class DefaultRouteBuilder implements RouteBuilder {
         }
 
         /**
-         * @return The {@link HttpStatus}
+         * @return The {@link io.micronaut.http.HttpStatus}
          */
         public HttpStatus getStatus() {
             return status;

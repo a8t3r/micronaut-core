@@ -16,6 +16,8 @@
 
 package io.micronaut.aop;
 
+import io.micronaut.inject.qualifiers.Qualified;
+
 /**
  * A {@link Intercepted} that proxies another instance.
  *
@@ -24,7 +26,7 @@ package io.micronaut.aop;
  * @author Graeme Rocher
  * @since 1.0
  */
-public interface InterceptedProxy<T> extends Intercepted {
+public interface InterceptedProxy<T> extends Intercepted, Qualified<T> {
 
     /**
      * This method will return the target object being proxied.
@@ -32,4 +34,5 @@ public interface InterceptedProxy<T> extends Intercepted {
      * @return The proxy target
      */
     T interceptedTarget();
+
 }

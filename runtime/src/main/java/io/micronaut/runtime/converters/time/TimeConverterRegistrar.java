@@ -20,6 +20,7 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.env.Environment;
 import io.micronaut.core.convert.ConversionContext;
 import io.micronaut.core.convert.ConversionService;
+import io.micronaut.core.convert.TypeConverter;
 import io.micronaut.core.convert.TypeConverterRegistrar;
 import io.micronaut.core.convert.format.Format;
 import io.micronaut.core.util.StringUtils;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,7 +48,7 @@ import java.util.regex.Pattern;
 @Requires(notEnv = Environment.ANDROID)
 public class TimeConverterRegistrar implements TypeConverterRegistrar {
 
-    private static final Pattern DURATION_MATCHER = Pattern.compile("^(\\d+)([s|m|h|d])(s?)$");
+    private static final Pattern DURATION_MATCHER = Pattern.compile("^(-?\\d+)([unsmhd])(s?)$");
     private static final int MILLIS = 3;
 
     @Override
@@ -68,7 +70,8 @@ public class TimeConverterRegistrar implements TypeConverterRegistrar {
                     Matcher matcher = DURATION_MATCHER.matcher(value);
                     if (matcher.find()) {
                         String amount = matcher.group(1);
-                        char type = matcher.group(2).charAt(0);
+                        final String g2 = matcher.group(2);
+                        char type = g2.charAt(0);
                         try {
                             switch (type) {
                                 case 's':
@@ -85,10 +88,16 @@ public class TimeConverterRegistrar implements TypeConverterRegistrar {
                                 case 'd':
                                     return Optional.of(Duration.ofDays(Integer.valueOf(amount)));
                                 default:
-                                    context.reject(
-                                            value,
-                                            new DateTimeParseException("Unparseable date format (" + value + "). Should either be a ISO-8601 duration or a round number followed by the unit type", value, 0));
-                                    return Optional.empty();
+                                    final String seq = g2 + matcher.group(3);
+                                    switch (seq) {
+                                        case "ns":
+                                            return Optional.of(Duration.ofNanos(Integer.valueOf(amount)));
+                                        default:
+                                            context.reject(
+                                                    value,
+                                                    new DateTimeParseException("Unparseable date format (" + value + "). Should either be a ISO-8601 duration or a round number followed by the unit type", value, 0));
+                                            return Optional.empty();
+                                    }
                             }
                         } catch (NumberFormatException e) {
                             context.reject(value, e);
@@ -99,7 +108,7 @@ public class TimeConverterRegistrar implements TypeConverterRegistrar {
             }
         );
 
-        // CharSequence -> LocalDataTime
+        // CharSequence -> LocalDateTime
         conversionService.addConverter(
             CharSequence.class,
             LocalDateTime.class,
@@ -113,6 +122,22 @@ public class TimeConverterRegistrar implements TypeConverterRegistrar {
                     return Optional.empty();
                 }
             }
+        );
+
+        // TemporalAccessor - CharSequence
+        final TypeConverter<TemporalAccessor, CharSequence> temporalConverter = (object, targetType, context) -> {
+            try {
+                DateTimeFormatter formatter = resolveFormatter(context);
+                return Optional.of(formatter.format(object));
+            } catch (DateTimeParseException e) {
+                context.reject(object, e);
+                return Optional.empty();
+            }
+        };
+        conversionService.addConverter(
+                TemporalAccessor.class,
+                CharSequence.class,
+                temporalConverter
         );
 
         // CharSequence -> LocalDate
@@ -130,6 +155,7 @@ public class TimeConverterRegistrar implements TypeConverterRegistrar {
                 }
             }
         );
+
 
         // CharSequence -> ZonedDateTime
         conversionService.addConverter(

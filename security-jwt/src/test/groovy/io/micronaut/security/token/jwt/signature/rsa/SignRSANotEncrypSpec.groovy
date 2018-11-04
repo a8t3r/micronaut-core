@@ -19,6 +19,7 @@ import com.nimbusds.jwt.EncryptedJWT
 import com.nimbusds.jwt.JWTParser
 import com.nimbusds.jwt.SignedJWT
 import io.micronaut.context.ApplicationContext
+import io.micronaut.context.env.Environment
 import io.micronaut.context.exceptions.NoSuchBeanException
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.client.RxHttpClient
@@ -30,6 +31,7 @@ import io.micronaut.security.token.jwt.AuthorizationUtils
 import io.micronaut.security.token.jwt.encryption.EncryptionConfiguration
 import io.micronaut.security.token.jwt.generator.JwtTokenGenerator
 import io.micronaut.security.token.jwt.signature.SignatureConfiguration
+import io.micronaut.security.token.jwt.signature.SignatureGeneratorConfiguration
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
@@ -50,7 +52,7 @@ class SignRSANotEncrypSpec extends Specification implements AuthorizationUtils {
             'micronaut.security.token.enabled': true,
             'micronaut.security.token.jwt.enabled': true,
             'pem.path': pemFile.absolutePath,
-    ], "test")
+    ], Environment.TEST)
 
     @Shared
     @AutoCleanup
@@ -70,9 +72,13 @@ class SignRSANotEncrypSpec extends Specification implements AuthorizationUtils {
         embeddedServer.applicationContext.getBean(PS512RSASignatureConfiguration.class)
         embeddedServer.applicationContext.getBean(RSASignatureConfiguration.class)
         embeddedServer.applicationContext.getBean(RSASignatureConfiguration.class, Qualifiers.byName("generator"))
+        embeddedServer.applicationContext.getBean(RSASignatureGeneratorConfiguration.class)
+        embeddedServer.applicationContext.getBean(RSASignatureGeneratorConfiguration.class, Qualifiers.byName("generator"))
         embeddedServer.applicationContext.getBean(RSASignatureFactory.class)
         embeddedServer.applicationContext.getBean(SignatureConfiguration.class)
         embeddedServer.applicationContext.getBean(SignatureConfiguration.class, Qualifiers.byName("generator"))
+        embeddedServer.applicationContext.getBean(SignatureGeneratorConfiguration.class)
+        embeddedServer.applicationContext.getBean(SignatureGeneratorConfiguration.class, Qualifiers.byName("generator"))
         embeddedServer.applicationContext.getBean(TokenGenerator.class)
 
         when:
@@ -86,6 +92,7 @@ class SignRSANotEncrypSpec extends Specification implements AuthorizationUtils {
 
         then:
         tokenGenerator.getSignatureConfiguration() instanceof RSASignature
+        tokenGenerator.getSignatureConfiguration() instanceof RSASignatureGenerator
 
         when:
         String token = loginWith(client,'user', 'password')

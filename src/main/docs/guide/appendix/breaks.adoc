@@ -1,5 +1,69 @@
 This section will document breaking changes that may happen during milestone or release candidate releases, as well as major releases eg (1.x.x -> 2.x.x).
 
+==== 1.0.0.RC3
+
+* All Micronaut modules have been renamed to include `micronaut-` prefix to make it easier to manage dependencies. If you are upgrading rename all references modules. Example `bom` -> `micronaut-bom`, `inject` -> `micronaut-inject` etc.
+* Methods for JWT signature generation have been removed from link:{api}/io/micronaut/security/token/jwt/signature/rsa/RSASignatureConfiguration.html[RSASignatureConfiguration] or
+link:{api}/io/micronaut/security/token/jwt/signature/ec/ECSignatureConfiguration.html[ECSignatureConfiguration]. Those beans should be used in microservices where you need only signature verification and not generation.
+
+To enable a RSA or EC JWT signature generation, you need to have in your app a bean of type link:{api}/io/micronaut/security/token/jwt/signature/rsa/RSASignatureGeneratorConfiguration.html[RSASignatureGeneratorConfiguration] or
+link:{api}/io/micronaut/security/token/jwt/signature/ec/ECSignatureGeneratorConfiguration.html[ECSignatureGeneratorConfiguration].
+
+
+==== 1.0.0.RC2
+
+* `io.micronaut.security.authentication.Authenticator::authenticate` method signature has changed from:
+
+`public Publisher<AuthenticationResponse> authenticate(UsernamePasswordCredentials credentials)`
+
+to:
+
+`public Publisher<AuthenticationResponse> authenticate(AuthenticationRequest authenticationRequest)`
+
+==== 1.0.0.RC1
+
+* The default port if no port is specified is now port 8080 instead of a random port, except in the test environment. A random port can be obtained by setting the port to -1.
+* The configuration for static resource has been changed to allow multiple mappings, each with their own set of paths. This will allow accessing resources at multiple URLs. Previously the configuration might have looked like:
++
+  micronaut:
+      router:
+          static:
+              resources:
+                  enabled: true
+                  mapping: /static/**
+                  paths:
+                    - classpath:static
++
+And now the equivalent configuration would be:
++
+  micronaut:
+      router:
+          static-resources:
+              default:
+                  enabled: true
+                  mapping: /static/**
+                  paths:
+                    - classpath:static
++
+The word `default` in that example is arbitrary and can be replaced with any name that is appropriate to describe the category of resources that will be served.
++
+NOTE: Notice the change from `static.resources` to `static-resources`.
++
+* The CLI feature for Netflix Archaius was incorrectly named `netflix-archius`. The feature has now been renamed to reflect the correct name, `netflix-archaius`.
+* The intercept url map security rule now no longer considers the query part of the request when determining if the request matches. Previously `/?value=true` would *not* match `/`.
+* Several APIs surrounding route URI matching and template parsing have changed to allow more information to be retrieved from the parsing process.
+* The following packages have been renamed:
+
+ io.micronaut.http.server.binding -> io.micronaut.http.bind
+
+* The following annotations have been moved to new locations:
+
+ io.micronaut.http.client.Client -> io.micronaut.http.client.annotation.Client
+ io.micronaut.security.Secured -> io.micronaut.security.annotation.Secured
+
+* The jackson deserialization features ACCEPT_SINGLE_VALUE_AS_ARRAY and UNWRAP_SINGLE_VALUE_ARRAYS are now enabled by default. To revert to the previous behavior, see the section on <<_jackson_configuration, Jackson Configuration>> for information on how to customize deserialization features.
+
+
 ==== 1.0.0.M4
 
 * Libraries compiled against earlier versions of Micronaut are not binary compatible with this release.

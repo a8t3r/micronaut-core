@@ -37,13 +37,15 @@ ioc:
 config:
   title: Application Configuration
   environments: The Environment
-  propertySource: PropertySources
+  propertySource: Externalized Configuration with PropertySources
   valueAnnotation: Configuration Injection
   configurationProperties: Configuration Properties
   customTypeConverter: Custom Type Converters
   eachProperty: Using @EachProperty to Drive Configuration
   eachBean: Using @EachBean to Drive Configuration
   # validation: Validating Configuration
+  jmx:
+    title: JMX Support
 aop:
   title: Aspect Oriented Programming
   aroundAdvice: Around Advice
@@ -75,21 +77,30 @@ httpServer:
   jsonBinding: JSON Binding with Jackson
   datavalidation: Data Validation
   staticResources: Serving Static Resources
-#  contentNegotiation: Content Negotiation
   errorHandling: Error Handling
   formData: Handling Form Data
   serverIO: Writing Response Data
   uploads: File Uploads
   transfers: File Transfers
-  sse: Server Sent Events
   filters: HTTP Filters
   sessions: HTTP Sessions
+  sse: Server Sent Events
+  websocket:
+    title: WebSocket Support
+    websocketServer: Using @ServerWebSocket
+    websocketClient: Using @ClientWebSocket
   serverEvents: Server Events
   serverConfiguration:
     title: Configuring the HTTP Server
     threadPools: Configuring Server Thread Pools
     cors: Configuring CORS
-    https: Securing the Server with HTTPS  
+    https: Securing the Server with HTTPS
+  views:
+    title: Server Side View Rendering
+    thymeleaf: Thymeleaf
+    handlebars: Handlebars.java
+    velocity: Apache Velocity
+  openapi: OpenAPI / Swagger Support
 httpClient:
   title: The HTTP Client
   lowLevelHttpClient:
@@ -99,6 +110,7 @@ httpClient:
     clientUploads: Multipart Client Uploads
     clientStreaming: Streaming JSON over HTTP
     clientConfiguration: Configuring HTTP clients
+    bindErrors: Bind Errors
   clientAnnotation:
     title: Declarative HTTP Clients with @Client
     clientParameters: Customizing Parameter Binding
@@ -109,19 +121,20 @@ httpClient:
     clientFallback: Client Fallbacks
     netflixHystrix: Netflix Hystrix Support
   clientFilter: HTTP Client Filters
+  clientSample: HTTP Client Sample
 cloud:
   title: Cloud Native Features
   cloudConfiguration:
     title: Cloud Configuration
     distributedConfiguration: Distributed Configuration
     distributedConfigurationConsul: Consul Support
-#    distributedConfigurationAwsParameterStore: AWS Parameter Store Support
+    distributedConfigurationAwsParameterStore: AWS Parameter Store Support
   serviceDiscovery:
     title: Service Discovery
     serviceDiscoveryConsul: Consul Support
     serviceDiscoveryEureka: Eureka Support
     serviceDiscoveryKubernetes: Kubernetes Support
-#    serviceDiscoveryRoute53: AWS Route 53 Support
+    serviceDiscoveryRoute53: AWS Route 53 Support
     serviceDiscoveryManual: Manual Service Discovery Configuration
   clientSideLoadBalancing:
     title: Client Side Load Balancing
@@ -141,7 +154,10 @@ serverlessFunctions:
     title: Running Functions
     functionWeb: Functions as Web Applications
     functionCLI: Functions as CLI Applications
-  lambdaFunctions: Deploying Functions to AWS Lambda 
+  deployingFunctions:
+    title: Deploying Functions
+    lambdaFunctions: Deploying Functions to AWS Lambda
+    openFaasFunctions: Deploying Functions to OpenFaaS
   callingFunctions: Calling Functions with FunctionClient
 messaging:
   title: Message-Driven Microservices
@@ -197,6 +213,10 @@ languageSupport:
     kaptintellij: Kotlin, Kapt and IntelliJ
     openandaop: Kotlin and AOP Advice
     kotlinretainparamnames: Kotlin and Retaining Parameter Names
+  graal:
+    title: Micronaut for GraalVM
+    graalServices: Microservices as GraalVM native images
+    graalFAQ: GraalVM and Micronaut FAQ
 management:
   title: Management & Monitoring
   buildingEndpoints:
@@ -241,6 +261,11 @@ security:
       claimsGeneration: Claims Generation
       render:
         title: Token Render
+    ldap:
+      title: LDAP Authentication
+      configuration: Configuration
+      extending: Extending Default Behavior
+  tokenPropagation: Token Propagation
   endpoints:
     title: Built-In Security Controllers
     login: Login Controller
@@ -248,6 +273,10 @@ security:
     refresh: Refresh Controller
   retrievingAuthenticatedUser: Retrieve the authenticated user
   securityEvents: Security Events
+
+multitenancy:
+  title: Multi-Tenancy
+  multitenancyGorm: Multi-Tenancy GORM
 cli:
   title: Micronaut CLI
   createProject: Creating a Project
@@ -262,6 +291,7 @@ cli:
     springloaded: Spring-Loaded
     gradleReload: Reloading with Gradle
     ideReload: Reloading with an IDE
+  proxy: Proxy Configuration
 appendix:
   title: Appendices
   faq: Frequently Asked Questions (FAQ)

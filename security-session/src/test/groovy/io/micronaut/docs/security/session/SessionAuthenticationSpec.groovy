@@ -17,13 +17,14 @@ package io.micronaut.docs.security.session
 
 import geb.spock.GebSpec
 import io.micronaut.context.ApplicationContext
-import io.micronaut.docs.YamlAsciidocTagCleaner
+import io.micronaut.context.env.Environment
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.MediaType
 import io.micronaut.http.client.RxHttpClient
 import io.micronaut.http.cookie.Cookie
 import io.micronaut.runtime.server.EmbeddedServer
+import io.micronaut.testutils.YamlAsciidocTagCleaner
 import org.yaml.snakeyaml.Yaml
 import spock.lang.AutoCleanup
 import spock.lang.IgnoreIf
@@ -43,7 +44,7 @@ micronaut:
         enabled: true
     session:
       enabled: true
-      loginFailureTargetUrl: /login/authFailed
+      login-failure-target-url: /login/authFailed
 '''//end::yamlconfig[]
 
     @Shared
@@ -60,7 +61,7 @@ micronaut:
                     ],
                     'session': [
                             'enabled': true,
-                            'loginFailureTargetUrl': '/login/authFailed',
+                            'login-failure-target-url': '/login/authFailed',
                     ]
             ]
         ]
@@ -71,7 +72,7 @@ micronaut:
     ApplicationContext context = ApplicationContext.run([
                     'spec.name': 'securitysession',
                     'micronaut.http.client.followRedirects': false
-            ] << flatten(configMap), 'test')
+            ] << flatten(configMap), Environment.TEST)
 
     @Shared
     @AutoCleanup

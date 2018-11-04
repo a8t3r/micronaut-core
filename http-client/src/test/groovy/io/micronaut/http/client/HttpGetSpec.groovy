@@ -16,6 +16,7 @@
 package io.micronaut.http.client
 
 import io.micronaut.context.ApplicationContext
+import io.micronaut.core.convert.format.Format
 import io.micronaut.core.type.Argument
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
@@ -24,6 +25,7 @@ import io.micronaut.http.MediaType
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.QueryValue
+import io.micronaut.http.client.annotation.Client
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.micronaut.runtime.server.EmbeddedServer
 import io.reactivex.Flowable
@@ -32,6 +34,9 @@ import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.util.concurrent.PollingConditions
+
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * @author Graeme Rocher
@@ -289,6 +294,16 @@ class HttpGetSpec extends Specification {
         helper.queryParam() == "a!b"
     }
 
+    void "test query parameter with @Client interface"() {
+        given:
+        MyGetClient client = embeddedServer.applicationContext.getBean(MyGetClient)
+
+        expect:
+        client.queryParam('{"service":["test"]}') == '{"service":["test"]}'
+        client.queryParam('foo', 'bar') == 'foo-bar'
+        client.queryParam('foo%', 'bar') == 'foo%-bar'
+    }
+
     void "test body availability"() {
         given:
         RxHttpClient client = RxHttpClient.create(embeddedServer.getURL())
@@ -331,6 +346,40 @@ class HttpGetSpec extends Specification {
         backing.stop()
     }
 
+    void "test that Optional.empty() should return 404"() {
+        given:
+        HttpClient client = HttpClient.create(embeddedServer.getURL())
+
+        when:
+        def flowable = Flowable.fromPublisher(client.exchange(
+                HttpRequest.GET("/get/empty")
+        ))
+
+        HttpResponse<Optional<String>> response = flowable.blockingFirst()
+
+        then:
+        def e = thrown(HttpClientResponseException)
+        e.message == "Page Not Found"
+        e.status == HttpStatus.NOT_FOUND
+
+        cleanup:
+        client.stop()
+        client.close()
+    }
+
+    void 'test format dates with @Format'() {
+        given:
+        MyGetClient client = embeddedServer.applicationContext.getBean(MyGetClient)
+        Date d = new Date(2018, 10, 20)
+        LocalDate dt = LocalDate.now()
+
+        expect:
+        client.formatDate(d) == d.toString()
+        client.formatDateQuery(d) == d.toString()
+        client.formatDateTime(dt) == dt.toString()
+        client.formatDateTimeQuery(dt) == dt.toString()
+    }
+
     @Controller("/get")
     static class GetController {
 
@@ -363,6 +412,36 @@ class HttpGetSpec extends Specification {
         String queryParam(@QueryValue String foo) {
             return foo
         }
+
+        @Get("/multipleQueryParam")
+        String queryParam(@QueryValue String foo, @QueryValue String bar) {
+            return foo + '-' + bar
+        }
+
+        @Get("/empty")
+        Optional<String> empty() {
+            return Optional.empty()
+        }
+
+        @Get("/date/{myDate}")
+        String formatDate(@Format('yyyy-MM-dd') Date myDate) {
+            return myDate.toString()
+        }
+
+        @Get("/dateTime/{myDate}")
+        String formatDateTime(@Format('yyyy-MM-dd') LocalDate myDate) {
+            return myDate.toString()
+        }
+
+        @Get("/dateQuery")
+        String formatDateQuery(@QueryValue @Format('yyyy-MM-dd') Date myDate) {
+            return myDate.toString()
+        }
+
+        @Get("/dateTimeQuery")
+        String formatDateTimeQuery(@QueryValue @Format('yyyy-MM-dd') LocalDate myDate) {
+            return myDate.toString()
+        }
     }
 
     static class Book {
@@ -371,6 +450,43 @@ class HttpGetSpec extends Specification {
 
     static class Error {
         String message
+    }
+
+    @Client("/get")
+    static interface MyGetClient {
+        @Get(value = "/simple", produces = MediaType.TEXT_PLAIN)
+        String simple()
+
+        @Get("/pojo")
+        Book pojo()
+
+        @Get("/pojoList")
+        List<Book> pojoList()
+
+        @Get(value = "/error", produces = MediaType.TEXT_PLAIN)
+        HttpResponse error()
+
+        @Get("/jsonError")
+        HttpResponse jsonError()
+
+        @Get("/queryParam")
+        String queryParam(@QueryValue String foo)
+
+        @Get("/multipleQueryParam")
+        String queryParam(@QueryValue String foo, @QueryValue String bar)
+
+        @Get("/date/{myDate}")
+        String formatDate(@Format('yyyy-MM-dd') Date myDate)
+
+        @Get("/dateTime/{myDate}")
+        String formatDateTime(@Format('yyyy-MM-dd') LocalDate myDate)
+
+        @Get("/dateQuery")
+        String formatDateQuery(@QueryValue @Format('yyyy-MM-dd') Date myDate)
+
+        @Get("/dateTimeQuery")
+        String formatDateTimeQuery(@QueryValue @Format('yyyy-MM-dd') LocalDate myDate)
+
     }
 
     @javax.inject.Singleton

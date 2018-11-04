@@ -16,6 +16,8 @@
 
 package io.micronaut.inject.writer;
 
+import io.micronaut.core.annotation.Internal;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,6 +30,7 @@ import java.util.Optional;
  * @author graemerocher
  * @since 1.0
  */
+@Internal
 public class DirectoryClassWriterOutputVisitor extends AbstractClassWriterOutputVisitor {
 
     private final File targetDir;
@@ -56,6 +59,17 @@ public class DirectoryClassWriterOutputVisitor extends AbstractClassWriterOutput
                 new File(root, "META-INF" + File.separator + path)
             )
         );
+    }
+
+    @Override
+    public Optional<GeneratedFile> visitGeneratedFile(String path) {
+        File parentFile = targetDir.getParentFile();
+        File generatedDir = new File(parentFile, "generated");
+        File f = new File(generatedDir, path);
+        if (f.getParentFile().mkdirs()) {
+            return Optional.of(new FileBackedGeneratedFile(f));
+        }
+        return Optional.empty();
     }
 
     private String getClassFileName(String className) {

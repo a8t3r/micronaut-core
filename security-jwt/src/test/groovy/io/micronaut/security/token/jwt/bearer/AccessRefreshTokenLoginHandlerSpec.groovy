@@ -16,6 +16,7 @@
 package io.micronaut.security.token.jwt.bearer
 
 import io.micronaut.context.ApplicationContext
+import io.micronaut.context.env.Environment
 import io.micronaut.context.exceptions.NoSuchBeanException
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
@@ -41,7 +42,7 @@ class AccessRefreshTokenLoginHandlerSpec extends Specification {
             'micronaut.security.endpoints.login.enabled': true,
             'micronaut.security.token.jwt.enabled': true,
             'micronaut.security.token.jwt.signatures.secret.generator.secret': 'qrD6h8K6S9503Q06Y6Rfk21TErImPYqa',
-            ], "test")
+            ], Environment.TEST)
 
     @Shared
     @AutoCleanup
@@ -89,5 +90,12 @@ class AccessRefreshTokenLoginHandlerSpec extends Specification {
         resp.body().username == "valid"
         resp.body().roles == ["foo", "bar"]
         resp.body().expiresIn
+
+        when: 'validate json response contains access_token and refresh_token keys as described in RFC6759'
+        String json = client.toBlocking().retrieve(HttpRequest.POST('/login', creds), String)
+
+        then:
+        json.contains('access_token')
+        json.contains('refresh_token')
     }
 }

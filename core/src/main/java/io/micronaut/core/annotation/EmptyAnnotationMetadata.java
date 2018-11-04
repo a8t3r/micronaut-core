@@ -16,6 +16,7 @@
 
 package io.micronaut.core.annotation;
 
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.value.OptionalValues;
 
 import java.lang.annotation.Annotation;
@@ -30,6 +31,7 @@ import java.util.Set;
  * @author Graeme Rocher
  * @since 1.0
  */
+@Internal
 class EmptyAnnotationMetadata implements AnnotationMetadata {
     @Override
     public boolean hasDeclaredAnnotation(String annotation) {
@@ -67,7 +69,7 @@ class EmptyAnnotationMetadata implements AnnotationMetadata {
     }
 
     @Override
-    public List<String> getDeclaredAnnotationNamesTypeByStereotype(String stereotype) {
+    public List<String> getDeclaredAnnotationNamesByStereotype(String stereotype) {
         return Collections.emptyList();
     }
 
@@ -84,6 +86,11 @@ class EmptyAnnotationMetadata implements AnnotationMetadata {
     @Override
     public <T> OptionalValues<T> getValues(String annotation, Class<T> valueType) {
         return OptionalValues.empty();
+    }
+
+    @Override
+    public <T> Optional<T> getDefaultValue(String annotation, String member, Argument<T> requiredType) {
+        return Optional.empty();
     }
 
     @Override

@@ -15,9 +15,13 @@
  */
 
 /**
- * This package contains the Annotation processors that power Micronaut.
+ * This package contains the Annotation processors that power Micronaut. Classes within this package
+ * are considered internal and should not be referenced from application code.
  *
  * @author graemerocher
  * @since 1.0
  */
+@Internal
 package io.micronaut.annotation.processing;
+
+import io.micronaut.core.annotation.Internal;

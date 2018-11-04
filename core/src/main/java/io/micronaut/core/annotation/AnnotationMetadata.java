@@ -17,12 +17,14 @@
 package io.micronaut.core.annotation;
 
 import io.micronaut.core.reflect.ClassUtils;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.value.OptionalValues;
 
 import javax.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Repeatable;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -122,7 +124,7 @@ public interface AnnotationMetadata extends AnnotationSource {
      * @param stereotype The stereotype
      * @return The declared annotations
      */
-    List<String> getDeclaredAnnotationNamesTypeByStereotype(String stereotype);
+    List<String> getDeclaredAnnotationNamesByStereotype(String stereotype);
 
     /**
      * Get all of the values for the given annotation and type of the underlying values.
@@ -143,7 +145,7 @@ public interface AnnotationMetadata extends AnnotationSource {
      * @param <T>          The required generic type
      * @return An optional value
      */
-    <T> Optional<T> getDefaultValue(String annotation, String member, Class<T> requiredType);
+    <T> Optional<T> getDefaultValue(String annotation, String member, Argument<T> requiredType);
 
     /**
      * Gets all the annotation values by the given repeatable type.
@@ -162,6 +164,32 @@ public interface AnnotationMetadata extends AnnotationSource {
      * @return A list of values
      */
     <T extends Annotation> List<AnnotationValue<T>> getDeclaredAnnotationValuesByType(Class<T> annotationType);
+
+    /**
+     * Return the default value for the given annotation member.
+     *
+     * @param annotation   The annotation
+     * @param member       The member
+     * @param requiredType The required type
+     * @param <T>          The required generic type
+     * @return An optional value
+     */
+    default <T> Optional<T> getDefaultValue(String annotation, String member, Class<T> requiredType) {
+        return getDefaultValue(annotation, member, Argument.of(requiredType));
+    }
+
+    /**
+     * Return the default value for the given annotation member.
+     *
+     * @param annotation   The annotation
+     * @param member       The member
+     * @param requiredType The required type
+     * @param <T>          The required generic type
+     * @return An optional value
+     */
+    default <T> Optional<T> getDefaultValue(Class<? extends Annotation> annotation, String member, Argument<T> requiredType) {
+        return getDefaultValue(annotation.getName(), member, requiredType);
+    }
 
     /**
      * @see AnnotationSource#isAnnotationPresent(Class)
@@ -202,6 +230,20 @@ public interface AnnotationMetadata extends AnnotationSource {
      * @return An {@link Optional} of the value
      */
     default <T> Optional<T> getValue(Class<? extends Annotation> annotation, String member, Class<T> requiredType) {
+        return getValue(annotation, member, Argument.of(requiredType));
+    }
+
+
+    /**
+     * Get the value of the given annotation member.
+     *
+     * @param annotation   The annotation class
+     * @param member       The annotation member
+     * @param requiredType The required type
+     * @param <T>          The value
+     * @return An {@link Optional} of the value
+     */
+    default <T> Optional<T> getValue(Class<? extends Annotation> annotation, String member, Argument<T> requiredType) {
         Repeatable repeatable = annotation.getAnnotation(Repeatable.class);
         if (repeatable != null) {
             List<? extends AnnotationValue<? extends Annotation>> values = getAnnotationValuesByType(annotation);
@@ -239,8 +281,8 @@ public interface AnnotationMetadata extends AnnotationSource {
      * @param stereotype The stereotype
      * @return The annotation name
      */
-    default Optional<String> getDeclaredAnnotationNameTypeByStereotype(String stereotype) {
-        return getDeclaredAnnotationNamesTypeByStereotype(stereotype).stream().findFirst();
+    default Optional<String> getDeclaredAnnotationNameByStereotype(String stereotype) {
+        return getDeclaredAnnotationNamesByStereotype(stereotype).stream().findFirst();
     }
 
     /**
@@ -271,9 +313,22 @@ public interface AnnotationMetadata extends AnnotationSource {
      */
     @SuppressWarnings("unchecked")
     default Optional<Class<? extends Annotation>> getDeclaredAnnotationTypeByStereotype(String stereotype) {
-        return getDeclaredAnnotationNameTypeByStereotype(stereotype).flatMap(name -> {
-            Optional<Class> opt = ClassUtils.forName(name, getClass().getClassLoader());
-            return opt.map(aClass -> (Class<? extends Annotation>) aClass);
+        return getDeclaredAnnotationNameByStereotype(stereotype).flatMap(this::getAnnotationType);
+    }
+
+    /**
+     * Gets the type for a given annotation if it is present on the classpath. Subclasses can potentially override to provide optimized loading.
+     * @param name The type name
+     * @return The type if present
+     */
+    default Optional<Class<? extends Annotation>> getAnnotationType(String name) {
+        final Optional<Class> aClass = ClassUtils.forName(name, getClass().getClassLoader());
+        return aClass.flatMap((Function<Class, Optional<Class<? extends Annotation>>>) aClass1 -> {
+            if (Annotation.class.isAssignableFrom(aClass1)) {
+                //noinspection unchecked
+                return Optional.of(aClass1);
+            }
+            return Optional.empty();
         });
     }
 
@@ -285,10 +340,7 @@ public interface AnnotationMetadata extends AnnotationSource {
      */
     @SuppressWarnings("unchecked")
     default Optional<Class<? extends Annotation>> getAnnotationTypeByStereotype(String stereotype) {
-        return getAnnotationNameByStereotype(stereotype).flatMap(name -> {
-            Optional<Class> opt = ClassUtils.forName(name, getClass().getClassLoader());
-            return opt.map(aClass -> (Class<? extends Annotation>) aClass);
-        });
+        return getAnnotationNameByStereotype(stereotype).flatMap(this::getAnnotationType);
     }
 
     /**
@@ -332,7 +384,7 @@ public interface AnnotationMetadata extends AnnotationSource {
     @SuppressWarnings("unchecked")
     default List<Class<? extends Annotation>> getAnnotationTypesByStereotype(Class<? extends Annotation> stereotype) {
         List<String> names = getAnnotationNamesByStereotype(stereotype.getName());
-        return names.stream().map(name -> ClassUtils.forName(name, AnnotationMetadata.class.getClassLoader()))
+        return names.stream().map(this::getAnnotationType)
             .filter(Optional::isPresent)
             .map(opt -> (Class<? extends Annotation>) opt.get())
             .collect(Collectors.toList());
@@ -390,6 +442,19 @@ public interface AnnotationMetadata extends AnnotationSource {
      * @return An {@link Optional} of the value
      */
     default <T> Optional<T> getValue(String annotation, String member, Class<T> requiredType) {
+        return getValue(annotation, member, Argument.of(requiredType));
+    }
+
+    /**
+     * Get the value of the given annotation member.
+     *
+     * @param annotation   The annotation class
+     * @param member       The annotation member
+     * @param requiredType The required type
+     * @param <T>          The value
+     * @return An {@link Optional} of the value
+     */
+    default <T> Optional<T> getValue(String annotation, String member, Argument<T> requiredType) {
         Optional<T> value = findAnnotation(annotation).flatMap(av -> av.get(member, requiredType));
         if (!value.isPresent()) {
             if (hasStereotype(annotation)) {
@@ -606,6 +671,30 @@ public interface AnnotationMetadata extends AnnotationSource {
      * @return An {@link Optional} of the value
      */
     default <T> Optional<T> getValue(Class<? extends Annotation> annotation, Class<T> requiredType) {
+        return getValue(annotation, AnnotationMetadata.VALUE_MEMBER, requiredType);
+    }
+
+    /**
+     * Get the value of default "value" the given annotation.
+     *
+     * @param annotation   The annotation class
+     * @param requiredType requiredType
+     * @param <T>          Generic type
+     * @return An {@link Optional} of the value
+     */
+    default <T> Optional<T> getValue(Class<? extends Annotation> annotation, Argument<T> requiredType) {
+        return getValue(annotation, AnnotationMetadata.VALUE_MEMBER, requiredType);
+    }
+
+    /**
+     * Get the value of default "value" the given annotation.
+     *
+     * @param annotation   The annotation class
+     * @param requiredType requiredType
+     * @param <T>          Generic type
+     * @return An {@link Optional} of the value
+     */
+    default <T> Optional<T> getValue(String annotation, Argument<T> requiredType) {
         return getValue(annotation, AnnotationMetadata.VALUE_MEMBER, requiredType);
     }
 

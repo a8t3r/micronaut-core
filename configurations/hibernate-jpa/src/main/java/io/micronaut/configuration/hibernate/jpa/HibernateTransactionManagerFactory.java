@@ -17,11 +17,10 @@
 package io.micronaut.configuration.hibernate.jpa;
 
 import io.micronaut.context.annotation.*;
-import io.micronaut.spring.tx.datasource.DataSourceTransactionManagerFactory;
+import io.micronaut.jdbc.spring.DataSourceTransactionManagerFactory;
 import org.hibernate.SessionFactory;
 import org.springframework.orm.hibernate5.HibernateTransactionManager;
 
-import javax.inject.Singleton;
 import javax.sql.DataSource;
 
 /**
@@ -32,7 +31,7 @@ import javax.sql.DataSource;
  */
 @Factory
 @Requires(classes = HibernateTransactionManager.class)
-@Replaces(DataSourceTransactionManagerFactory.class)
+@Replaces(factory = DataSourceTransactionManagerFactory.class)
 public class HibernateTransactionManagerFactory {
 
     /**
@@ -42,7 +41,6 @@ public class HibernateTransactionManagerFactory {
      */
     @Bean
     @Requires(classes = HibernateTransactionManager.class)
-    @Singleton
     @EachBean(SessionFactory.class)
     HibernateTransactionManager hibernateTransactionManager(SessionFactory sessionFactory, DataSource dataSource) {
         HibernateTransactionManager hibernateTransactionManager = new HibernateTransactionManager(sessionFactory);

@@ -16,6 +16,8 @@
 
 package io.micronaut.http;
 
+import io.micronaut.core.type.MutableHeaders;
+
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -34,7 +36,7 @@ import java.util.stream.Collectors;
  * @author Graeme Rocher
  * @since 1.0
  */
-public interface MutableHttpHeaders extends HttpHeaders {
+public interface MutableHttpHeaders extends MutableHeaders, HttpHeaders  {
 
     /**
      * Add a header for the given name and value.
@@ -43,7 +45,11 @@ public interface MutableHttpHeaders extends HttpHeaders {
      * @param value  The value
      * @return This headers object
      */
+    @Override
     MutableHttpHeaders add(CharSequence header, CharSequence value);
+
+    @Override
+    MutableHttpHeaders remove(CharSequence header);
 
     /**
      * Set the allowed HTTP methods.
@@ -163,9 +169,11 @@ public interface MutableHttpHeaders extends HttpHeaders {
      * @return This HTTP headers
      */
     default MutableHttpHeaders auth(String username, String password) {
-        String token = "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.ISO_8859_1));
-        add(AUTHORIZATION, token);
-        return this;
+        StringBuilder sb = new StringBuilder();
+        sb.append(username);
+        sb.append(":");
+        sb.append(password);
+        return auth(sb.toString());
     }
 
     /**
@@ -175,7 +183,11 @@ public interface MutableHttpHeaders extends HttpHeaders {
      * @return This HTTP headers
      */
     default MutableHttpHeaders auth(String userInfo) {
-        String token = "Basic " + Base64.getEncoder().encodeToString((userInfo).getBytes(StandardCharsets.ISO_8859_1));
+        StringBuilder sb = new StringBuilder();
+        sb.append(HttpHeaderValues.AUTHORIZATION_PREFIX_BASIC);
+        sb.append(" ");
+        sb.append(Base64.getEncoder().encodeToString((userInfo).getBytes(StandardCharsets.ISO_8859_1)));
+        String token = sb.toString();
         add(AUTHORIZATION, token);
         return this;
     }
@@ -239,10 +251,5 @@ public interface MutableHttpHeaders extends HttpHeaders {
         return this;
     }
 
-    /**
-     * Removes the header for the given name.
-     *
-     * @param header The header name
-     */
-    void remove(CharSequence header);
+
 }

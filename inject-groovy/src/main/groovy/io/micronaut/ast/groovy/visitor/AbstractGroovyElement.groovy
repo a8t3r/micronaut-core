@@ -17,8 +17,11 @@ package io.micronaut.ast.groovy.visitor
 
 import io.micronaut.core.annotation.AnnotationMetadata
 import io.micronaut.core.annotation.AnnotationMetadataDelegate
-import io.micronaut.inject.visitor.Element
+import io.micronaut.inject.ast.Element
 
+/**
+ * Abstract Groovy element.
+ */
 abstract class AbstractGroovyElement implements AnnotationMetadataDelegate, Element {
 
     final AnnotationMetadata annotationMetadata

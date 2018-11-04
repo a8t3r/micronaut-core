@@ -16,7 +16,6 @@
 
 package io.micronaut.discovery.eureka.client.v2;
 
-import io.micronaut.discovery.eureka.EurekaConfiguration;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
 import io.micronaut.retry.annotation.Retryable;
@@ -40,12 +39,12 @@ public interface EurekaOperations {
      *
      * @param appId    The application id
      * @param instance The instance
-     * @return A status of {@link HttpStatus#NO_CONTENT} on success
+     * @return A status of {@link io.micronaut.http.HttpStatus#NO_CONTENT} on success
      */
-    @Post("/apps/{appId}")
+    @Post(uri = "/apps/{appId}", single = true)
     @Retryable(
-        attempts = "${" + EurekaConfiguration.EurekaRegistrationConfiguration.PREFIX + ".retryCount:3}",
-        delay = "${" + EurekaConfiguration.EurekaRegistrationConfiguration.PREFIX + ".retryDelay:1s}"
+        attempts = AbstractEurekaClient.EXPR_EUREKA_REGISTRATION_RETRY_COUNT,
+        delay = AbstractEurekaClient.EXPR_EUREKA_REGISTRATION_RETRY_DELAY
     )
     Publisher<HttpStatus> register(@NotBlank String appId, @Valid @NotNull @Body InstanceInfo instance);
 
@@ -54,12 +53,12 @@ public interface EurekaOperations {
      *
      * @param appId      The application id
      * @param instanceId The instance id (this is the value of {@link InstanceInfo#getId()})
-     * @return A status of {@link HttpStatus#OK} on success
+     * @return A status of {@link io.micronaut.http.HttpStatus#OK} on success
      */
-    @Delete("/apps/{appId}/{instanceId}")
+    @Delete(uri = "/apps/{appId}/{instanceId}", single = true)
     @Retryable(
-        attempts = "${" + EurekaConfiguration.EurekaRegistrationConfiguration.PREFIX + ".retryCount:3}",
-        delay = "${" + EurekaConfiguration.EurekaRegistrationConfiguration.PREFIX + ".retryDelay:1s}"
+        attempts = AbstractEurekaClient.EXPR_EUREKA_REGISTRATION_RETRY_COUNT,
+        delay = AbstractEurekaClient.EXPR_EUREKA_REGISTRATION_RETRY_DELAY
     )
     Publisher<HttpStatus> deregister(@NotBlank String appId, @NotBlank String instanceId);
 
@@ -69,8 +68,7 @@ public interface EurekaOperations {
      * @param appId The app id
      * @return The {@link ApplicationInfo} instance
      */
-    @Get("/apps/{appId}")
-    @Produces(single = true)
+    @Get(uri = "/apps/{appId}", single = true)
     Publisher<ApplicationInfo> getApplicationInfo(@NotBlank String appId);
 
     /**
@@ -80,8 +78,7 @@ public interface EurekaOperations {
      * @param instanceId The instance id (this is the value of {@link InstanceInfo#getId()})
      * @return The {@link InstanceInfo} instance
      */
-    @Get("/apps/{appId}/{instanceId}")
-    @Produces(single = true)
+    @Get(uri = "/apps/{appId}/{instanceId}", single = true)
     Publisher<InstanceInfo> getInstanceInfo(@NotBlank String appId, @NotBlank String instanceId);
 
     /**
@@ -105,9 +102,9 @@ public interface EurekaOperations {
      *
      * @param appId      The application id
      * @param instanceId The instance id
-     * @return A status of {@link HttpStatus#OK} on success
+     * @return A status of {@link io.micronaut.http.HttpStatus#OK} on success
      */
-    @Put("/apps/{appId}/{instanceId}")
+    @Put(uri = "/apps/{appId}/{instanceId}", single = true)
     Publisher<HttpStatus> heartbeat(@NotBlank String appId, @NotBlank String instanceId);
 
     /**
@@ -116,9 +113,9 @@ public interface EurekaOperations {
      * @param appId      The application id
      * @param instanceId The instance id
      * @param status     The status to use
-     * @return A status of {@link HttpStatus#OK} on success
+     * @return A status of {@link io.micronaut.http.HttpStatus#OK} on success
      */
-    @Put("/apps/{appId}/{instanceId}/status?value={status}")
+    @Put(uri = "/apps/{appId}/{instanceId}/status?value={status}", single = true)
     Publisher<HttpStatus> updateStatus(@NotBlank String appId, @NotBlank String instanceId, @NotNull InstanceInfo.Status status);
 
     /**
@@ -128,8 +125,8 @@ public interface EurekaOperations {
      * @param instanceId The instance id
      * @param key        The key to update
      * @param value      The value to update
-     * @return A status of {@link HttpStatus#OK} on success
+     * @return A status of {@link io.micronaut.http.HttpStatus#OK} on success
      */
-    @Put("/apps/{appId}/{instanceId}/metadata?{key}={value}")
+    @Put(uri = "/apps/{appId}/{instanceId}/metadata?{key}={value}", single = true)
     Publisher<HttpStatus> updateMetadata(@NotBlank String appId, @NotBlank String instanceId, @NotBlank String key, @NotBlank String value);
 }

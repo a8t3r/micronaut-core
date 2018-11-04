@@ -1,13 +1,21 @@
 Micronaut features dedicated support for automatically configuring the https://neo4j.com/docs/developer-manual/current/drivers/[Neo4j Bolt Driver] for the popular https://neo4j.com/[Neo4j] Graph Database.
 
-== Configuring Neoj4 Bolt
+== Configuring Neo4j Bolt
+[TIP]
+.Using the CLI
+====
+If you are creating your project using the Micronaut CLI, supply the `neo4j-bolt` feature to configure the Neo4j Bolt driver in your project:
+----
+$ mn create-app my-app --features neo4j-bolt
+----
+====
 
 To configure the Neo4j Bolt driver you should first add the `neo4j-bolt` module to your classpath:
 
 .build.gradle
 [source,groovy]
 ----
-compile "io.micronaut.configuration:neo4j-bolt"
+compile "io.micronaut.configuration:micronaut-neo4j-bolt"
 ----
 
 You should then configure the URI of the Neo4j server you wish to communicate with in `application.yml`:
@@ -76,6 +84,15 @@ See the section on the <<healthEndpoint, Health Endpoint>> for more information.
 
 == Using GORM for Neo4j
 
+[TIP]
+.Using the CLI
+====
+If you are creating your project using the Micronaut CLI, supply the `neo4j-gorm` feature to configure GORM for Neo4j in your project:
+----
+$ mn create-app my-app --features neo4j-gorm
+----
+====
+
 For Groovy users and users familiar with Grails, special support has been added to Micronaut for using http://gorm.grails.org/latest/neo4j/manual[GORM for Neo4j].
 
 To add support for GORM for Neo4j, first configure the Neo4j connection as per instructions earlier in the guide, then add the following dependency to your application:
@@ -83,7 +100,7 @@ To add support for GORM for Neo4j, first configure the Neo4j connection as per i
 .build.gradle
 [source,groovy]
 ----
-compile "io.micronaut.configuration:neo4j-gorm"
+compile "io.micronaut.configuration:micronaut-neo4j-gorm"
 ----
 
 The following should be noted regarding using GORM for Neo4j in Micronaut:

@@ -21,6 +21,7 @@ import static io.micronaut.core.util.ArgumentUtils.check;
 import io.micronaut.context.Qualifier;
 import io.micronaut.context.annotation.Primary;
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.naming.NameResolver;
 import io.micronaut.inject.BeanType;
 
@@ -36,6 +37,7 @@ import java.util.stream.Stream;
  * @author Graeme Rocher
  * @since 1.0
  */
+@Internal
 class NameQualifier<T> implements Qualifier<T>, io.micronaut.core.naming.Named {
 
     private final String name;
@@ -102,13 +104,14 @@ class NameQualifier<T> implements Qualifier<T>, io.micronaut.core.naming.Named {
     }
 
     /**
+     * @param <BT>           Bean type
      * @param beanType       The bean type
      * @param candidates     The candidates
      * @param annotationName The annotation name
-     * @param <BT>           Bean type
+     * @param qualifiedName The fully qualified name of the annotation
      * @return A stream
      */
-    protected <BT extends BeanType<T>> Stream<BT> reduceByAnnotation(Class<T> beanType, Stream<BT> candidates, String annotationName) {
+    protected <BT extends BeanType<T>> Stream<BT> reduceByAnnotation(Class<T> beanType, Stream<BT> candidates, String annotationName, String qualifiedName) {
         return candidates.filter(candidate -> {
                 String candidateName;
                 if (candidate.isPrimary() && Primary.class.getSimpleName().equals(annotationName)) {
@@ -130,8 +133,42 @@ class NameQualifier<T> implements Qualifier<T>, io.micronaut.core.naming.Named {
                         return true;
                     }
                 }
-                return false;
+                return qualifiedName != null && candidate.getAnnotationMetadata().hasDeclaredAnnotation(qualifiedName);
             }
+        );
+    }
+
+    /**
+     * @param <BT>           Bean type
+     * @param beanType       The bean type
+     * @param candidates     The candidates
+     * @param annotationName The annotation name
+     * @return A stream
+     */
+    protected <BT extends BeanType<T>> Stream<BT> reduceByName(Class<T> beanType, Stream<BT> candidates, String annotationName) {
+        return candidates.filter(candidate -> {
+                    String candidateName;
+                    if (candidate.isPrimary() && Primary.class.getSimpleName().equals(annotationName)) {
+                        return true;
+                    }
+                    if (candidate instanceof NameResolver) {
+                        candidateName = ((NameResolver) candidate).resolveName().orElse(candidate.getBeanType().getSimpleName());
+                    } else {
+                        Optional<String> annotation = candidate.getAnnotationMetadata().getValue(Named.class, String.class);
+                        candidateName = annotation.orElse(candidate.getBeanType().getSimpleName());
+                    }
+
+                    if (candidateName.equalsIgnoreCase(annotationName)) {
+                        return true;
+                    } else {
+
+                        String qualified = annotationName + beanType.getSimpleName();
+                        if (qualified.equals(candidateName)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
         );
     }
 }

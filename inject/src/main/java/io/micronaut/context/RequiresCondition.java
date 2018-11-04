@@ -22,16 +22,18 @@ import io.micronaut.context.condition.Condition;
 import io.micronaut.context.condition.ConditionContext;
 import io.micronaut.context.condition.TrueCondition;
 import io.micronaut.context.env.Environment;
+import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationMetadataProvider;
 import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.reflect.ClassUtils;
+import io.micronaut.core.reflect.ClassLoadingReporter;
 import io.micronaut.core.reflect.InstantiationUtils;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.core.value.PropertyResolver;
 import io.micronaut.core.version.SemanticVersion;
+import io.micronaut.core.version.VersionUtils;
 import io.micronaut.inject.BeanConfiguration;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.BeanDefinitionReference;
@@ -122,6 +124,10 @@ public class RequiresCondition implements Condition {
             return;
         }
 
+        if (!matchesEnvironment(context, requirements)) {
+            return;
+        }
+
         if (!matchesPresenceOfEntities(context, requirements)) {
             return;
         }
@@ -134,9 +140,6 @@ public class RequiresCondition implements Condition {
             return;
         }
 
-        if (!matchesEnvironment(context, requirements)) {
-            return;
-        }
 
         if (!matchesConfiguration(context, requirements)) {
             return;
@@ -283,13 +286,14 @@ public class RequiresCondition implements Condition {
         if (conditionClass == TrueCondition.class) {
             return true;
         } else if (conditionClass != null) {
-            try {
-                boolean conditionResult = conditionClass.newInstance().matches(context);
+            Optional<? extends Condition> condition = InstantiationUtils.tryInstantiate(conditionClass);
+            if (condition.isPresent()) {
+                boolean conditionResult = condition.get().matches(context);
                 if (!conditionResult) {
                     context.fail("Custom condition [" + conditionClass + "] failed evaluation");
                 }
                 return conditionResult;
-            } catch (Throwable e) {
+            } else {
                 // maybe a Groovy closure
                 Optional<Constructor<?>> constructor = ReflectionUtils.findConstructor((Class) conditionClass, Object.class, Object.class);
                 boolean conditionResult = constructor.flatMap(ctor ->
@@ -349,10 +353,9 @@ public class RequiresCondition implements Condition {
 
                     return context.isFailing();
                 default:
-                    String micronautVersion = getClass().getPackage().getImplementationVersion();
-                    boolean versionCheck = SemanticVersion.isAtLeast(micronautVersion, version);
+                    boolean versionCheck = VersionUtils.isAtLeastMicronautVersion(version);
                     if (!versionCheck) {
-                        context.fail("Micronaut version [" + micronautVersion + "] must be at least " + version);
+                        context.fail("Micronaut version [" + VersionUtils.MICRONAUT_VERSION + "] must be at least " + version);
                     }
                     return versionCheck;
             }
@@ -385,28 +388,19 @@ public class RequiresCondition implements Condition {
 
     private boolean matchesPresenceOfClasses(ConditionContext context, AnnotationValue<Requires> requirements, String attr) {
         if (requirements.contains(attr)) {
-            Optional<String[]> classNames = requirements.get(attr, String[].class);
+            Optional<AnnotationClassValue[]> classNames = requirements.get(attr, AnnotationClassValue[].class);
             if (classNames.isPresent()) {
-                String[] names = classNames.get();
-                if (context instanceof ApplicationContext) {
-                    ApplicationContext ac = (ApplicationContext) context;
-                    Environment environment = ac.getEnvironment();
-
-                    // environment.isPresent(..) caches results, so we use it for efficiency
-                    for (String name : names) {
-                        if (!environment.isPresent(name)) {
-                            context.fail("Class [" + name + "] is not present");
-                            return false;
+                AnnotationClassValue[] classValues = classNames.get();
+                for (AnnotationClassValue classValue : classValues) {
+                    if (!classValue.getType().isPresent()) {
+                        context.fail("Class [" + classValue.getName() + "] is not present");
+                        if (ClassLoadingReporter.isReportingEnabled()) {
+                            for (AnnotationClassValue cv : classValues) {
+                                ClassLoadingReporter.reportMissing(cv.getName());
+                            }
+                            reportMissingClass(context);
                         }
-                    }
-                } else {
-
-                    ClassLoader classLoader = context.getBeanContext().getClassLoader();
-                    for (String name : names) {
-                        if (!ClassUtils.forName(name, classLoader).isPresent()) {
-                            context.fail("Class [" + name + "] is not present");
-                            return false;
-                        }
+                        return false;
                     }
                 }
             }
@@ -414,31 +408,40 @@ public class RequiresCondition implements Condition {
         return true;
     }
 
+    private void reportMissingClass(ConditionContext context) {
+        AnnotationMetadataProvider component = context.getComponent();
+        if (component instanceof BeanDefinitionReference) {
+            BeanDefinitionReference ref = (BeanDefinitionReference) component;
+            ClassLoadingReporter.reportMissing(ref.getClass().getName());
+            ClassLoadingReporter.reportMissing(ref.getBeanDefinitionName());
+            ClassLoadingReporter.reportMissing(ref.getName());
+        }
+    }
+
     private boolean matchesPresenceOfEntities(ConditionContext context, AnnotationValue<Requires> annotationValue) {
         if (annotationValue.contains("entities")) {
-            BeanContext beanContext = context.getBeanContext();
-            if (beanContext instanceof ApplicationContext) {
-                ApplicationContext applicationContext = (ApplicationContext) beanContext;
-                Optional<String[]> classNames = annotationValue.get("entities", String[].class);
-                if (classNames.isPresent()) {
-                    String[] names = classNames.get();
-                    if (ArrayUtils.isNotEmpty(names)) {
-                        Optional<Class> type = ClassUtils.forName(names[0], beanContext.getClassLoader());
-                        if (!type.isPresent()) {
-                            context.fail("Annotation type [" + names[0] + "] not present on classpath");
+            Optional<AnnotationClassValue[]> classNames = annotationValue.get("entities", AnnotationClassValue[].class);
+            if (classNames.isPresent()) {
+                BeanContext beanContext = context.getBeanContext();
+                if (beanContext instanceof ApplicationContext) {
+                    ApplicationContext applicationContext = (ApplicationContext) beanContext;
+                    final AnnotationClassValue[] classValues = classNames.get();
+                    for (AnnotationClassValue<?> classValue : classValues) {
+                        final Optional<? extends Class<?>> entityType = classValue.getType();
+                        if (!entityType.isPresent()) {
+                            context.fail("Annotation type [" + classValue.getName() + "] not present on classpath");
                             return false;
                         } else {
                             Environment environment = applicationContext.getEnvironment();
-                            Class annotationType = type.get();
+                            Class annotationType = entityType.get();
                             if (!environment.scan(annotationType).findFirst().isPresent()) {
-                                context.fail("No entities found in packages [" + String.join(", ", environment.getPackages()) + "]");
+                                context.fail("No entities found in packages [" + String.join(", ", environment.getPackages()) + "] for annotation: " + annotationType);
                                 return false;
                             }
                         }
                     }
                 }
             }
-
         }
         return true;
     }

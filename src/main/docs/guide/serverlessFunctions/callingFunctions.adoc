@@ -3,8 +3,15 @@ Micronaut provides support for invoking functions (either locally or deployed to
 .build.gradle
 [source,groovy]
 ----
-compile "io.micronaut:function-client"
+compile "io.micronaut:micronaut-function-client"
 ----
+
+[TIP]
+.Using the CLI
+====
+If you are creating your project using the Micronaut CLI's `create-function` command, the `function-client` dependency is included by default.
+====
+
 
 The developer's primary use of this feature will be in defining interfaces that are annotated with link:{api}/io/micronaut/function/client/FunctionClient.html[FunctionClient]. When this annotation is applied, methods on the interface will become invokers of respective methods on the remote (or local) function associated with the interface.
 
@@ -52,6 +59,27 @@ include::{testsfunctionclient}/LocalFunctionInvokeSpec.groovy[tags=functionRnd, 
 include::{testsfunctionclient}/LocalFunctionInvokeSpec.groovy[tags=endFunctionClient, indent=0]
 ----
 
+Functions that only return a value are mapped to HTTP `GET` requests, whilst functions that accept an input require an HTTP `POST`.
+
+For a example, the following function can be accessed using the `IsbnValidatorClient` interface listed below.
+
+[source,java]
+----
+include::{testsfunctionclient}/IsbnValidatorFunction.java[tags=imports]
+
+include::{testsfunctionclient}/IsbnValidatorFunction.java[tags=clazz]
+----
+
+[source,java]
+----
+include::{testsfunctionclient}/IsbnValidatorClient.java[tags=imports]
+
+include::{testsfunctionclient}/IsbnValidatorClient.java[tags=clazz]
+----
+
+<1> Please, note the `@Body` annotation in the method parameter.
+
+
 == Reactive FunctionClients
 
 `@FunctionClient` interfaces support RxJava constructs, so the above interfaces could be implemented as shown below:
@@ -83,7 +111,7 @@ aws:
             hello:
                 functionName: hello-world
                 qualifer: foo
-    region: us-east-1
+        region: us-east-1
 ----
 
 In the above case a function named `hello` is mapped to the remote lambda function called `hello-world`. You can define multiple named functions under the `aws.lambda.functions` configuration. Each is configured by api:function.client.aws.AWSInvokeRequestDefinition[] that allows setting any property on the underlying `com.amazonaws.services.lambda.model.InvokeRequest`.

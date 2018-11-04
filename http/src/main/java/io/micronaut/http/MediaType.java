@@ -293,6 +293,7 @@ public class MediaType implements CharSequence {
         textTypePatterns.add(Pattern.compile("^.*\\+json$"));
         textTypePatterns.add(Pattern.compile("^.*\\+text$"));
         textTypePatterns.add(Pattern.compile("^.*\\+xml$"));
+        textTypePatterns.add(Pattern.compile("^application/javascript$"));
     }
 
     /**
@@ -611,7 +612,6 @@ public class MediaType implements CharSequence {
             }
             return result;
         } catch (IOException ex) {
-            System.out.println(ex.getMessage());
             if (LOG.isWarnEnabled()) {
                 LOG.warn("Failed to load mime types for file extension detection!");
             }

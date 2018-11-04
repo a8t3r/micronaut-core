@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -45,11 +46,12 @@ public class AnnotationProcessingOutputVisitor extends AbstractClassWriterOutput
     private final Filer filer;
     private final Map<String, Optional<GeneratedFile>> metaInfFiles = new HashMap<>();
     private final Map<String, FileObject> openedFiles = new HashMap<>();
+    private final Map<String, Optional<GeneratedFile>> generatedFiles = new HashMap<>();
 
     /**
      * @param filer The {@link Filer} for creating new files
      */
-    AnnotationProcessingOutputVisitor(Filer filer) {
+    public AnnotationProcessingOutputVisitor(Filer filer) {
         this.filer = filer;
     }
 
@@ -65,6 +67,11 @@ public class AnnotationProcessingOutputVisitor extends AbstractClassWriterOutput
             String finalPath = "META-INF/" + path;
             return Optional.of(new GeneratedFileObject(finalPath));
         });
+    }
+
+    @Override
+    public Optional<GeneratedFile> visitGeneratedFile(String path) {
+        return generatedFiles.computeIfAbsent(path, s -> Optional.of(new GeneratedFileObject(path, StandardLocation.SOURCE_OUTPUT)));
     }
 
     private FileObject openFileForReading(String path) {
@@ -83,14 +90,34 @@ public class AnnotationProcessingOutputVisitor extends AbstractClassWriterOutput
     class GeneratedFileObject implements GeneratedFile {
 
         private final String path;
-
+        private final StandardLocation classOutput;
         private FileObject inputObject;
+        private FileObject outputObject;
 
         /**
          * @param path The path for the generated file
          */
         GeneratedFileObject(String path) {
             this.path = path;
+            classOutput = StandardLocation.CLASS_OUTPUT;
+        }
+
+        /**
+         * @param path The path for the generated file
+         * @param location The location
+         */
+        GeneratedFileObject(String path, StandardLocation location) {
+            this.path = path;
+            this.classOutput = location;
+        }
+
+        @Override
+        public URI toURI() {
+            try {
+                return getOutputObject().toUri();
+            } catch (IOException e) {
+                throw new ClassGenerationException("Unable to return URI for file object: " + path);
+            }
         }
 
         @Override
@@ -100,12 +127,12 @@ public class AnnotationProcessingOutputVisitor extends AbstractClassWriterOutput
 
         @Override
         public Writer openWriter() throws IOException {
-            return filer.createResource(StandardLocation.CLASS_OUTPUT, "", path).openWriter();
+            return getOutputObject().openWriter();
         }
 
         @Override
         public OutputStream openOutputStream() throws IOException {
-            return filer.createResource(StandardLocation.CLASS_OUTPUT, "", path).openOutputStream();
+            return getOutputObject().openOutputStream();
         }
 
         @Override
@@ -134,6 +161,13 @@ public class AnnotationProcessingOutputVisitor extends AbstractClassWriterOutput
             } catch (FileNotFoundException e) {
                 return null;
             }
+        }
+
+        private FileObject getOutputObject() throws IOException {
+            if (outputObject == null) {
+                outputObject = filer.createResource(classOutput, "", path);
+            }
+            return outputObject;
         }
     }
 

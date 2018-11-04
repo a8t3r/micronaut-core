@@ -4,11 +4,10 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.http.MediaType
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
-import io.micronaut.http.client.Client
+import io.micronaut.http.client.annotation.Client
 import io.micronaut.runtime.server.EmbeddedServer
 import io.reactivex.Flowable
 import io.reactivex.Maybe
-import io.reactivex.Single
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
@@ -42,7 +41,7 @@ class NotFoundSpec extends Specification {
         @Get('/maybe/{isbn}')
         Maybe<Boolean> maybe(String isbn)
 
-        @Get(value = '/flowable/{isbn}', processes = MediaType.TEXT_PLAIN)
+        @Get(value = '/flowable/{isbn}', processes = MediaType.TEXT_EVENT_STREAM)
         Flowable<Boolean> flowable(String isbn)
     }
 
@@ -62,7 +61,7 @@ class NotFoundSpec extends Specification {
             return Maybe.empty()
         }
 
-        @Get('/flowable/{isbn}')
+        @Get(value = '/flowable/{isbn}', processes = MediaType.TEXT_EVENT_STREAM)
         Flowable<Boolean> flowable(String isbn) {
             Boolean value = stock[isbn]
             if (value != null) {

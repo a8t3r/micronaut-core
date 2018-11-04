@@ -16,7 +16,8 @@
 package io.micronaut.docs.base64
 
 import io.micronaut.context.ApplicationContext
-import io.micronaut.docs.YamlAsciidocTagCleaner
+import io.micronaut.context.env.Environment
+import io.micronaut.testutils.YamlAsciidocTagCleaner
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.client.RxHttpClient
 import io.micronaut.http.client.exceptions.HttpClientResponseException
@@ -45,7 +46,7 @@ micronaut:
             generator: 
               secret: 'cGxlYXNlQ2hhbmdlVGhpc1NlY3JldEZvckFOZXdPbmU=' #<1>
               base64: true #<2>
-              jwsAlgorithm: HS256
+              jws-algorithm: HS256
 #end::yamlconfig[]
 """
 
@@ -62,7 +63,7 @@ micronaut:
                                                         'generator': [
                                                                 'secret': 'cGxlYXNlQ2hhbmdlVGhpc1NlY3JldEZvckFOZXdPbmU=',
                                                                 'base64': true,
-                                                                'jwsAlgorithm': 'HS256'
+                                                                'jws-algorithm': 'HS256'
                                                         ]
                                                 ]
                                         ]
@@ -78,7 +79,7 @@ micronaut:
             'spec.name': 'base64',
             'endpoints.beans.enabled': true,
             'endpoints.beans.sensitive': true,
-    ] << flatten(configMap), "test")
+    ] << flatten(configMap), Environment.TEST)
 
     @Shared
     @AutoCleanup

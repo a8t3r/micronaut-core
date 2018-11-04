@@ -16,6 +16,8 @@
 
 package io.micronaut.inject.writer;
 
+import io.micronaut.core.annotation.Internal;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -26,6 +28,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
+import java.net.URI;
 import java.nio.file.Files;
 
 /**
@@ -34,6 +37,7 @@ import java.nio.file.Files;
  * @author graemerocher
  * @since 1.0
  */
+@Internal
 class FileBackedGeneratedFile implements GeneratedFile {
     private final File file;
 
@@ -42,6 +46,11 @@ class FileBackedGeneratedFile implements GeneratedFile {
      */
     FileBackedGeneratedFile(File file) {
         this.file = file;
+    }
+
+    @Override
+    public URI toURI() {
+        return file.toURI();
     }
 
     @Override

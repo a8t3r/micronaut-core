@@ -24,11 +24,13 @@ import io.micronaut.inject.visitor.TypeElementVisitor
 import org.codehaus.groovy.ast.AnnotatedNode
 import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.ConstructorNode
 import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.GenericsType
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.PropertyNode
 import org.codehaus.groovy.ast.Variable
+import org.codehaus.groovy.control.SourceUnit
 
 /**
  * Used to store a reference to an underlying {@link TypeElementVisitor} and
@@ -42,13 +44,13 @@ import org.codehaus.groovy.ast.Variable
 @CompileStatic
 class LoadedVisitor {
 
+    private final SourceUnit sourceUnit
     private final TypeElementVisitor visitor
     private final String classAnnotation
     private final String elementAnnotation
-    private final GroovyVisitorContext visitorContext
 
-    LoadedVisitor(TypeElementVisitor visitor, GroovyVisitorContext visitorContext) {
-        this.visitorContext = visitorContext
+    LoadedVisitor( SourceUnit source, TypeElementVisitor visitor) {
+        this.sourceUnit = source
         this.visitor = visitor
         ClassNode classNode = ClassHelper.make(visitor.getClass())
         ClassNode definition = classNode.getAllInterfaces().find {
@@ -60,8 +62,9 @@ class LoadedVisitor {
     }
 
     TypeElementVisitor getVisitor() {
-        return visitor
+        visitor
     }
+
 
     boolean equals(o) {
         if (this.is(o)) return true
@@ -90,8 +93,8 @@ class LoadedVisitor {
         if (classAnnotation == ClassHelper.OBJECT) {
             return true
         }
-        AnnotationMetadata annotationMetadata = AstAnnotationUtils.getAnnotationMetadata(classNode)
-        return annotationMetadata.hasAnnotation(classAnnotation)
+        AnnotationMetadata annotationMetadata = AstAnnotationUtils.getAnnotationMetadata(sourceUnit, classNode)
+        return annotationMetadata.hasStereotype(classAnnotation)
     }
 
     /**
@@ -102,7 +105,7 @@ class LoadedVisitor {
         if (elementAnnotation == ClassHelper.OBJECT) {
             return true
         }
-        return annotationMetadata.hasAnnotation(elementAnnotation)
+        return annotationMetadata.hasStereotype(elementAnnotation)
     }
 
     /**
@@ -110,19 +113,36 @@ class LoadedVisitor {
      *
      * @param annotatedNode The node to visit
      * @param annotationMetadata The annotation data for the node
+     * @param visitorContext the Groovy visitor context
      */
-    void visit(AnnotatedNode annotatedNode, AnnotationMetadata annotationMetadata) {
+    void visit(AnnotatedNode annotatedNode, AnnotationMetadata annotationMetadata, GroovyVisitorContext visitorContext) {
         switch (annotatedNode.getClass()) {
             case FieldNode:
             case PropertyNode:
-                visitor.visitField(new GroovyFieldElement((Variable) annotatedNode, annotationMetadata), visitorContext)
+                visitor.visitField(new GroovyFieldElement(sourceUnit, (Variable) annotatedNode, annotationMetadata), visitorContext)
+                break
+            case ConstructorNode:
+                visitor.visitConstructor(new GroovyConstructorElement(sourceUnit, (ConstructorNode) annotatedNode, annotationMetadata), visitorContext)
                 break
             case MethodNode:
-                visitor.visitMethod(new GroovyMethodElement((MethodNode) annotatedNode, annotationMetadata), visitorContext)
+                visitor.visitMethod(new GroovyMethodElement(sourceUnit, (MethodNode) annotatedNode, annotationMetadata), visitorContext)
                 break
             case ClassNode:
-                visitor.visitClass(new GroovyClassElement((ClassNode) annotatedNode, annotationMetadata), visitorContext)
+                ClassNode cn = (ClassNode) annotatedNode
+                if (cn.isEnum()) {
+
+                } else {
+                    visitor.visitClass(new GroovyClassElement(sourceUnit, cn, annotationMetadata), visitorContext)
+                }
                 break
         }
+    }
+
+    void start(GroovyVisitorContext visitorContext) {
+        visitor.start(visitorContext)
+    }
+
+    void finish(GroovyVisitorContext visitorContext) {
+        visitor.finish(visitorContext)
     }
 }

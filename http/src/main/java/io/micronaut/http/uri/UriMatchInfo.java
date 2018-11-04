@@ -16,6 +16,7 @@
 
 package io.micronaut.http.uri;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,5 +35,10 @@ public interface UriMatchInfo {
     /**
      * @return The variable values following a successful match
      */
-    Map<String, Object> getVariables();
+    Map<String, Object> getVariableValues();
+
+    /**
+     * @return The list of template variables
+     */
+    List<UriMatchVariable> getVariables();
 }

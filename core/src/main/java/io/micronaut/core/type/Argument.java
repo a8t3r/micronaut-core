@@ -18,14 +18,17 @@ package io.micronaut.core.type;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationMetadataProvider;
+import io.micronaut.core.annotation.UsedByGeneratedCode;
 import io.micronaut.core.naming.NameUtils;
 import io.micronaut.core.naming.Named;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.util.ArrayUtils;
 
 import javax.annotation.Nullable;
-import java.lang.reflect.*;
+import java.lang.reflect.TypeVariable;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -38,13 +41,69 @@ import java.util.stream.Collectors;
 public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMetadataProvider {
 
     /**
-     * Constant representing zero arguments.
+     * Constant for int argument. Used by generated code, do not remove.
      */
+    @SuppressWarnings("unused")
+    Argument INT = Argument.of(int.class);
+
+    /**
+     * Constant for long argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument LONG = Argument.of(long.class);
+
+    /**
+     * Constant for float argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument FLOAT = Argument.of(float.class);
+
+    /**
+     * Constant for double argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument DOUBLE = Argument.of(double.class);
+
+    /**
+     * Constant for void argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument VOID = Argument.of(void.class);
+
+    /**
+     * Constant for byte argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument BYTE = Argument.of(byte.class);
+
+    /**
+     * Constant for boolean argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument BOOLEAN = Argument.of(boolean.class);
+
+    /**
+     * Constant char argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument CHAR = Argument.of(char.class);
+
+    /**
+     * Constant short argument. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
+    Argument SHORT = Argument.of(short.class);
+
+    /**
+     * Constant representing zero arguments. Used by generated code, do not remove.
+     */
+    @SuppressWarnings("unused")
     Argument[] ZERO_ARGUMENTS = new Argument[0];
 
     /**
-     * Default Object argument.
+     * Default Object argument. Used by generated code, do not remove.
      */
+    @SuppressWarnings("unused")
     Argument<Object> OBJECT_ARGUMENT = of(Object.class);
 
     /**
@@ -149,6 +208,7 @@ public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMeta
      * @param <T>            The generic type
      * @return The argument instance
      */
+    @UsedByGeneratedCode
     static <T> Argument<T> of(
         Class<T> type,
         String name,
@@ -166,6 +226,7 @@ public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMeta
      * @param <T>                The generic type
      * @return The argument instance
      */
+    @UsedByGeneratedCode
     static <T> Argument<T> of(
         Class<T> type,
         String name,
@@ -182,6 +243,7 @@ public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMeta
      * @param <T>  The generic type
      * @return The argument instance
      */
+    @UsedByGeneratedCode
     static <T> Argument<T> of(
         Class<T> type,
         String name) {
@@ -196,9 +258,10 @@ public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMeta
      * @param <T>            The generic type
      * @return The argument instance
      */
+    @UsedByGeneratedCode
     static <T> Argument<T> of(
         Class<T> type, @Nullable Argument... typeParameters) {
-        return new DefaultArgument<>(type, type.getSimpleName(), AnnotationMetadata.EMPTY_METADATA, typeParameters);
+        return new DefaultArgument<>(type, NameUtils.decapitalize(type.getSimpleName()), AnnotationMetadata.EMPTY_METADATA, typeParameters);
     }
 
     /**
@@ -208,6 +271,7 @@ public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMeta
      * @param <T>  The generic type
      * @return The argument instance
      */
+    @UsedByGeneratedCode
     static <T> Argument<T> of(
         Class<T> type) {
         return new DefaultArgument<>(type, NameUtils.decapitalize(type.getSimpleName()), AnnotationMetadata.EMPTY_METADATA, Argument.ZERO_ARGUMENTS);
@@ -221,6 +285,7 @@ public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMeta
      * @param <T>            The generic type
      * @return The argument instance
      */
+    @UsedByGeneratedCode
     static <T> Argument<T> of(Class<T> type, @Nullable Class<?>... typeParameters) {
         if (typeParameters == null) {
             return of(type);
@@ -236,8 +301,45 @@ public interface Argument<T> extends TypeVariableResolver, Named, AnnotationMeta
                 TypeVariable<Class<T>> parameter = parameters[i];
                 typeArguments[i] = Argument.of(typeParameters[i], parameter.getName());
             }
-            return new DefaultArgument<>(type, type.getSimpleName(), AnnotationMetadata.EMPTY_METADATA, typeArguments);
+            return new DefaultArgument<>(type, NameUtils.decapitalize(type.getSimpleName()), AnnotationMetadata.EMPTY_METADATA, typeArguments);
         }
     }
 
+    /**
+     * Creates a new argument representing a generic list.
+     *
+     * @param type list element type
+     * @param <T>  list element type
+     * @return The argument instance
+     */
+    static <T> Argument<List<T>> listOf(Class<T> type) {
+        //noinspection unchecked
+        return of((Class<List<T>>) ((Class) List.class), type);
+    }
+
+    /**
+     * Creates a new argument representing a generic set.
+     *
+     * @param type set element type
+     * @param <T>  set element type
+     * @return The argument instance
+     */
+    static <T> Argument<Set<T>> setOf(Class<T> type) {
+        //noinspection unchecked
+        return of((Class<Set<T>>) ((Class) Set.class), type);
+    }
+
+    /**
+     * Creates a new argument representing a generic map.
+     *
+     * @param keyType The key type
+     * @param valueType The value type
+     * @param <K>  The map key type
+     * @param <V> The map value type
+     * @return The argument instance
+     */
+    static <K, V> Argument<Map<K, V>> mapOf(Class<K> keyType, Class<V> valueType) {
+        //noinspection unchecked
+        return of((Class<Map<K, V>>) ((Class) Map.class), keyType, valueType);
+    }
 }

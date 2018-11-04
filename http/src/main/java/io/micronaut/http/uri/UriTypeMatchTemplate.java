@@ -44,13 +44,13 @@ public class UriTypeMatchTemplate extends UriMatchTemplate {
     }
 
     /**
-     * @param templateString The template
-     * @param segments       The segments
-     * @param matchPattern   The match pattern
-     * @param variableTypes  The variable types
-     * @param variables      The variables
+     * @param templateString    The template
+     * @param segments          The segments
+     * @param matchPattern      The match pattern
+     * @param variableTypes     The variable types
+     * @param variables         The variables
      */
-    protected UriTypeMatchTemplate(CharSequence templateString, List<PathSegment> segments, Pattern matchPattern, Class[] variableTypes, String... variables) {
+    protected UriTypeMatchTemplate(CharSequence templateString, List<PathSegment> segments, Pattern matchPattern, Class[] variableTypes, List<UriMatchVariable> variables) {
         super(templateString, segments, matchPattern, variables);
         this.variableTypes = variableTypes;
     }
@@ -77,13 +77,15 @@ public class UriTypeMatchTemplate extends UriMatchTemplate {
     @Override
     protected UriTemplateParser createParser(String templateString, Object... parserArguments) {
         this.pattern = new StringBuilder();
-        this.variableList = new ArrayList<>();
+        if (this.variables == null) {
+            this.variables = new ArrayList<>();
+        }
         this.variableTypes = parserArguments != null && parserArguments.length > 0 ? (Class[]) parserArguments[0] : new Class[0];
         return new TypedUriMatchTemplateParser(templateString, this);
     }
 
     @Override
-    protected UriMatchTemplate newUriMatchTemplate(CharSequence uriTemplate, List<PathSegment> newSegments, Pattern newPattern, String[] variables) {
+    protected UriMatchTemplate newUriMatchTemplate(CharSequence uriTemplate, List<PathSegment> newSegments, Pattern newPattern, List<UriMatchVariable> variables) {
         return new UriTypeMatchTemplate(uriTemplate, newSegments, newPattern, variableTypes, variables);
     }
 

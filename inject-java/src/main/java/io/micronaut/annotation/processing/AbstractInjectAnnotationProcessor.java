@@ -22,6 +22,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -45,6 +46,20 @@ abstract class AbstractInjectAnnotationProcessor extends AbstractProcessor {
     protected ClassWriterOutputVisitor classWriterOutputVisitor;
 
     @Override
+    public SourceVersion getSupportedSourceVersion() {
+        SourceVersion sourceVersion = SourceVersion.latest();
+        if (sourceVersion.ordinal() <= 11) {
+            if (sourceVersion.ordinal() >= 8) {
+                return sourceVersion;
+            } else {
+                return SourceVersion.RELEASE_8;
+            }
+        } else {
+            return (SourceVersion.values())[11];
+        }
+    }
+
+    @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
         this.messager = processingEnv.getMessager();
@@ -53,7 +68,7 @@ abstract class AbstractInjectAnnotationProcessor extends AbstractProcessor {
         this.elementUtils = processingEnv.getElementUtils();
         this.typeUtils = processingEnv.getTypeUtils();
         this.modelUtils = new ModelUtils(elementUtils, typeUtils);
-        this.annotationUtils = new AnnotationUtils(elementUtils);
+        this.annotationUtils = new AnnotationUtils(elementUtils,  messager, typeUtils, modelUtils, filer);
         this.genericUtils = new GenericUtils(elementUtils, typeUtils, modelUtils);
     }
 

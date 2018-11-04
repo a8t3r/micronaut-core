@@ -19,14 +19,14 @@ package io.micronaut.annotation.processing.visitor;
 import io.micronaut.annotation.processing.GenericUtils;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.reflect.GenericTypeUtils;
+import io.micronaut.inject.processing.JavaModelUtils;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -57,10 +57,23 @@ public class LoadedVisitor {
                          ProcessingEnvironment processingEnvironment) {
         this.visitorContext = visitorContext;
         this.visitor = visitor;
-        TypeElement typeElement = processingEnvironment.getElementUtils().getTypeElement(visitor.getClass().getName());
-        List<? extends TypeMirror> generics = genericUtils.interfaceGenericTypesFor(typeElement, TypeElementVisitor.class.getName());
-        classAnnotation = generics.get(0).toString();
-        elementAnnotation = generics.get(1).toString();
+        Class<? extends TypeElementVisitor> aClass = visitor.getClass();
+
+        TypeElement typeElement = processingEnvironment.getElementUtils().getTypeElement(aClass.getName());
+        if (typeElement != null) {
+            List<? extends TypeMirror> generics = genericUtils.interfaceGenericTypesFor(typeElement, TypeElementVisitor.class.getName());
+            classAnnotation = generics.get(0).toString();
+            elementAnnotation = generics.get(1).toString();
+        } else {
+            Class[] classes = GenericTypeUtils.resolveInterfaceTypeArguments(aClass, TypeElementVisitor.class);
+            if (classes != null && classes.length == 2) {
+                classAnnotation = classes[0].getName();
+                elementAnnotation = classes[1].getName();
+            } else {
+                classAnnotation = Object.class.getName();
+                elementAnnotation = Object.class.getName();
+            }
+        }
     }
 
     /**
@@ -79,7 +92,7 @@ public class LoadedVisitor {
             return true;
         }
         AnnotationMetadata annotationMetadata = visitorContext.getAnnotationUtils().getAnnotationMetadata(typeElement);
-        return annotationMetadata.hasAnnotation(classAnnotation);
+        return annotationMetadata.hasStereotype(classAnnotation);
     }
 
     /**
@@ -90,7 +103,7 @@ public class LoadedVisitor {
         if (elementAnnotation.equals("java.lang.Object")) {
             return true;
         }
-        return annotationMetadata.hasDeclaredAnnotation(elementAnnotation);
+        return annotationMetadata.hasStereotype(elementAnnotation);
     }
 
     /**
@@ -104,24 +117,53 @@ public class LoadedVisitor {
             visitor.visitField(
                     new JavaFieldElement(
                             (VariableElement) element,
-                            annotationMetadata),
-                    visitorContext
-            );
-        } else if (element instanceof ExecutableElement) {
-            visitor.visitMethod(
-                    new JavaMethodElement(
-                        (ExecutableElement) element,
-                        annotationMetadata, visitorContext),
-                    visitorContext
-            );
-        } else if (element instanceof TypeElement) {
-            visitor.visitClass(
-                    new JavaClassElement(
-                            (TypeElement) element,
                             annotationMetadata,
                             visitorContext),
                     visitorContext
             );
+        } else if (element instanceof ExecutableElement) {
+            ExecutableElement executableElement = (ExecutableElement) element;
+            if (executableElement.getSimpleName().toString().equals("<init>")) {
+                visitor.visitConstructor(
+                        new JavaConstructorElement(
+                                executableElement,
+                                annotationMetadata, visitorContext),
+                        visitorContext
+                );
+            } else {
+                visitor.visitMethod(
+                        new JavaMethodElement(
+                                executableElement,
+                                annotationMetadata, visitorContext),
+                        visitorContext
+                );
+            }
+        } else if (element instanceof TypeElement) {
+            TypeElement typeElement = (TypeElement) element;
+            boolean isEnum = JavaModelUtils.resolveKind(typeElement, ElementKind.ENUM).isPresent();
+            if (isEnum) {
+                visitor.visitClass(
+                        new JavaEnumElement(
+                                typeElement,
+                                annotationMetadata,
+                                visitorContext,
+                                Collections.emptyList()),
+                        visitorContext
+                );
+            } else {
+                visitor.visitClass(
+                        new JavaClassElement(
+                                typeElement,
+                                annotationMetadata,
+                                visitorContext),
+                        visitorContext
+                );
+            }
         }
+    }
+
+    @Override
+    public String toString() {
+        return visitor.toString();
     }
 }

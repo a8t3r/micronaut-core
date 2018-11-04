@@ -17,6 +17,8 @@
 package io.micronaut.security.token.jwt.endpoints;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.util.StringUtils;
 import io.micronaut.security.config.SecurityConfigurationProperties;
 
 /**
@@ -25,13 +27,26 @@ import io.micronaut.security.config.SecurityConfigurationProperties;
  * @author Sergio del Amo
  * @since 1.0
  */
+@Requires(property = OauthControllerConfigurationProperties.PREFIX + ".enabled", value = StringUtils.TRUE)
 @ConfigurationProperties(OauthControllerConfigurationProperties.PREFIX)
 public class OauthControllerConfigurationProperties implements OauthControllerConfiguration {
 
     public static final String PREFIX = SecurityConfigurationProperties.PREFIX + ".endpoints.oauth";
 
-    protected boolean enabled = false;
-    protected String path = "/oauth/access_token";
+    /**
+     * The default enable value.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final boolean DEFAULT_ENABLED = false;
+
+    /**
+     * The default path.
+     */
+    @SuppressWarnings("WeakerAccess")
+    public static final String DEFAULT_PATH = "/oauth/access_token";
+
+    private boolean enabled = DEFAULT_ENABLED;
+    private String path = DEFAULT_PATH;
 
     /**
      * @return true if you want to enable the {@link OauthController}
@@ -44,5 +59,25 @@ public class OauthControllerConfigurationProperties implements OauthControllerCo
     @Override
     public String getPath() {
         return this.path;
+    }
+
+    /**
+     * Sets whether the {@link io.micronaut.security.token.jwt.endpoints.OauthController} is enabled. Default value ({@value #DEFAULT_ENABLED}).
+     *
+     * @param enabled True if is enabled
+     */
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    /**
+     * Sets the path to map the {@link io.micronaut.security.token.jwt.endpoints.OauthController} to. Default value ({@value #DEFAULT_PATH}).
+     *
+     * @param path The path
+     */
+    public void setPath(String path) {
+        if (StringUtils.isNotEmpty(path)) {
+            this.path = path;
+        }
     }
 }

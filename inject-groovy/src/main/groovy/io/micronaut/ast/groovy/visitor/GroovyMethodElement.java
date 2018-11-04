@@ -17,11 +17,18 @@
 package io.micronaut.ast.groovy.visitor;
 
 import io.micronaut.ast.groovy.utils.AstAnnotationUtils;
+import io.micronaut.ast.groovy.utils.ExtendedParameter;
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.inject.visitor.ClassElement;
-import io.micronaut.inject.visitor.MethodElement;
+import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.MethodElement;
+import io.micronaut.inject.ast.ParameterElement;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.MethodNode;
+import org.codehaus.groovy.ast.Parameter;
+import org.codehaus.groovy.control.SourceUnit;
+
+import java.util.Arrays;
+import java.util.function.Function;
 
 /**
  * A method element returning data from a {@link MethodNode}.
@@ -31,15 +38,18 @@ import org.codehaus.groovy.ast.MethodNode;
  */
 public class GroovyMethodElement extends AbstractGroovyElement implements MethodElement {
 
+    private final SourceUnit sourceUnit;
     private final MethodNode methodNode;
 
     /**
+     * @param sourceUnit The source unit
      * @param methodNode         The {@link MethodNode}
      * @param annotationMetadata The annotation metadata
      */
-    GroovyMethodElement(MethodNode methodNode, AnnotationMetadata annotationMetadata) {
+    GroovyMethodElement(SourceUnit sourceUnit, MethodNode methodNode, AnnotationMetadata annotationMetadata) {
         super(annotationMetadata);
         this.methodNode = methodNode;
+        this.sourceUnit = sourceUnit;
     }
 
     @Override
@@ -85,6 +95,18 @@ public class GroovyMethodElement extends AbstractGroovyElement implements Method
     @Override
     public ClassElement getReturnType() {
         ClassNode returnType = methodNode.getReturnType();
-        return new GroovyClassElement(returnType, AstAnnotationUtils.getAnnotationMetadata(returnType));
+        if (returnType.isEnum()) {
+            return new GroovyEnumElement(sourceUnit, returnType, AstAnnotationUtils.getAnnotationMetadata(sourceUnit, returnType));
+        } else {
+            return new GroovyClassElement(sourceUnit, returnType, AstAnnotationUtils.getAnnotationMetadata(sourceUnit, returnType));
+        }
+    }
+
+    @Override
+    public ParameterElement[] getParameters() {
+        Parameter[] parameters = methodNode.getParameters();
+        return Arrays.stream(parameters).map((Function<Parameter, ParameterElement>) parameter ->
+                new GroovyParameterElement(sourceUnit, parameter, AstAnnotationUtils.getAnnotationMetadata(sourceUnit, new ExtendedParameter(methodNode, parameter)))
+        ).toArray(ParameterElement[]::new);
     }
 }

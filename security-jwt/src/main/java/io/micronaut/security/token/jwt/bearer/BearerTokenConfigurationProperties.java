@@ -17,6 +17,10 @@
 package io.micronaut.security.token.jwt.bearer;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.util.StringUtils;
+import io.micronaut.http.HttpHeaderValues;
+import io.micronaut.http.HttpHeaders;
 import io.micronaut.security.token.jwt.config.JwtConfigurationProperties;
 
 /**
@@ -25,14 +29,17 @@ import io.micronaut.security.token.jwt.config.JwtConfigurationProperties;
  * @author Sergio del Amo
  * @since 1.0
  */
+@Requires(property = BearerTokenConfigurationProperties.PREFIX + ".enabled", notEquals = StringUtils.FALSE)
 @ConfigurationProperties(BearerTokenConfigurationProperties.PREFIX)
 public class BearerTokenConfigurationProperties implements BearerTokenConfiguration {
 
     public static final String PREFIX = JwtConfigurationProperties.PREFIX + ".bearer";
 
-    protected boolean enabled = true;
-    protected String headerName = "Authorization";
-    protected String prefix = "Bearer";
+    public static final boolean DEFAULT_ENABLED = true;
+
+    private boolean enabled = DEFAULT_ENABLED;
+    private String headerName = HttpHeaders.AUTHORIZATION;
+    private String prefix = HttpHeaderValues.AUTHORIZATION_PREFIX_BEARER;
 
     @Override
     public boolean isEnabled() {
@@ -47,5 +54,32 @@ public class BearerTokenConfigurationProperties implements BearerTokenConfigurat
     @Override
     public String getHeaderName() {
         return headerName;
+    }
+
+
+    /**
+     * Set whether to enable basic auth. Default value {@value #DEFAULT_ENABLED}
+     *
+     * @param enabled True if enabled
+     */
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    /**
+     * Sets the header name to use. Default value {@value io.micronaut.http.HttpHeaders#AUTHORIZATION}.
+     *
+     * @param headerName The header name to use
+     */
+    public void setHeaderName(String headerName) {
+        this.headerName = headerName;
+    }
+
+    /**
+     * Sets the prefix to use for the auth token. Default value {@value io.micronaut.http.HttpHeaderValues#AUTHORIZATION_PREFIX_BEARER}
+     * @param prefix The prefix to use
+     */
+    public void setPrefix(String prefix) {
+        this.prefix = prefix;
     }
 }

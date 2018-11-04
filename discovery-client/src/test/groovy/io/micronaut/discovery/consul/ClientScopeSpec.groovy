@@ -18,7 +18,7 @@ package io.micronaut.discovery.consul
 import io.micronaut.context.ApplicationContext
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
-import io.micronaut.http.client.Client
+import io.micronaut.http.client.annotation.Client
 import io.micronaut.http.client.RxHttpClient
 import io.micronaut.runtime.server.EmbeddedServer
 import spock.lang.IgnoreIf
@@ -57,7 +57,7 @@ class ClientScopeSpec extends Specification implements MockConsulSpec  {
         consulServer?.stop()
     }
 
-    @IgnoreIf({ !System.getenv('CONSUL_PORT') })
+    @IgnoreIf({ !env['CONSUL_PORT'] })
     void "test that a client can be discovered using @Client scope with Consul "() {
         given:
         def consulServer = [

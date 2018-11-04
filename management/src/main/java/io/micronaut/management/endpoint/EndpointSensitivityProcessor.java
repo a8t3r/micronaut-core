@@ -17,16 +17,13 @@
 package io.micronaut.management.endpoint;
 
 import io.micronaut.context.processor.ExecutableMethodProcessor;
+import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.management.endpoint.annotation.Endpoint;
 
 import javax.inject.Singleton;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Finds any sensitive endpoints.
@@ -37,9 +34,9 @@ import java.util.Optional;
 @Singleton
 public class EndpointSensitivityProcessor implements ExecutableMethodProcessor<Endpoint> {
 
-    private final EndpointConfiguration[] endpointConfigurations;
+    private final List<EndpointConfiguration> endpointConfigurations;
     private final EndpointDefaultConfiguration defaultConfiguration;
-    private Map<Method, Boolean> endpointMethods = new HashMap<>();
+    private Map<ExecutableMethod, Boolean> endpointMethods = new HashMap<>();
 
     /**
      * Constructs with the existing and default endpoint configurations used to determine if a given endpoint is
@@ -48,9 +45,9 @@ public class EndpointSensitivityProcessor implements ExecutableMethodProcessor<E
      * @param endpointConfigurations The endpoint configurations
      * @param defaultConfiguration   The default endpoint configuration
      */
-    public EndpointSensitivityProcessor(EndpointConfiguration[] endpointConfigurations,
+    public EndpointSensitivityProcessor(List<EndpointConfiguration> endpointConfigurations,
                                         EndpointDefaultConfiguration defaultConfiguration) {
-        this.endpointConfigurations = endpointConfigurations;
+        this.endpointConfigurations = CollectionUtils.unmodifiableList(endpointConfigurations);
         this.defaultConfiguration = defaultConfiguration;
     }
 
@@ -58,7 +55,7 @@ public class EndpointSensitivityProcessor implements ExecutableMethodProcessor<E
      * @return Returns Map with the key being a method which identifies an {@link Endpoint} and a boolean value being
      * the sensitive configuration for the endpoint.
      */
-    public Map<Method, Boolean> getEndpointMethods() {
+    public Map<ExecutableMethod, Boolean> getEndpointMethods() {
         return endpointMethods;
     }
 
@@ -67,8 +64,7 @@ public class EndpointSensitivityProcessor implements ExecutableMethodProcessor<E
         Optional<String> optionalId = beanDefinition.getValue(Endpoint.class, String.class);
         optionalId.ifPresent((id) -> {
 
-            EndpointConfiguration configuration = Arrays
-                .stream(endpointConfigurations)
+            EndpointConfiguration configuration = endpointConfigurations.stream()
                 .filter((c) -> c.getId().equals(id))
                 .findFirst()
                 .orElseGet(() -> new EndpointConfiguration(id, defaultConfiguration));
@@ -79,7 +75,7 @@ public class EndpointSensitivityProcessor implements ExecutableMethodProcessor<E
                     .getValue(Endpoint.class, "defaultSensitive", Boolean.class)
                     .orElse(Endpoint.SENSITIVE));
 
-            endpointMethods.put(method.getTargetMethod(), sensitive);
+            endpointMethods.put(method, sensitive);
         });
     }
 }

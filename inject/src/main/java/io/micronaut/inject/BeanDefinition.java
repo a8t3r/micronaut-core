@@ -70,6 +70,11 @@ public interface BeanDefinition<T> extends AnnotationMetadataDelegate, Named, Be
     Class<T> getBeanType();
 
     /**
+     * @return The type that declares this definition, null if not applicable.
+     */
+    Optional<Class<?>> getDeclaringType();
+
+    /**
      * The single concrete constructor that is an injection point for creating the bean.
      *
      * @return The constructor injection point
@@ -156,6 +161,15 @@ public interface BeanDefinition<T> extends AnnotationMetadataDelegate, Named, Be
      * @return The {@link ExecutableMethod} instances for this definition
      */
     Collection<ExecutableMethod<T, ?>> getExecutableMethods();
+
+    /**
+     * Whether this bean definition represents a proxy.
+     *
+     * @return True if it represents a proxy
+     */
+    default boolean isProxy() {
+        return this instanceof ProxyBeanDefinition;
+    }
 
     /**
      * If the bean itself declares any type arguments this method will return the classes that represent those types.
